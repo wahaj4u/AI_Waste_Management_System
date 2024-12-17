@@ -15,7 +15,7 @@ def segment_waste(image):
     # Convert image to a tensor and reshape for the model input
     image_tensor = torch.tensor(image_np, dtype=torch.float32).unsqueeze(0)  # Assuming model expects a batch of 1
     # Load your pre-trained model
-    model = torch.load('path_to_your_model_file.pth')  # Change this to the actual path
+    model = torch.load('train_account_best.pth')  # Change this to the actual path
     with torch.no_grad():
         output = model(image_tensor)  # Process the image through the model
     return output  # Return the segmented portion of the image
