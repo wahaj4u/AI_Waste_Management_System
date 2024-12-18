@@ -4,20 +4,20 @@ from PIL import Image
 
 # Title of the Streamlit App
 st.title("Waste Classification App")
-st.write("Upload an image to classify the waste and get disposal instructions.")
+st.write("Capture an image using your camera to classify the waste and get disposal instructions.")
 
-# File upload section
-uploaded_image = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png", "heic"])
+# Camera input section
+captured_image = st.camera_input("Capture an image using your camera")
 
-if uploaded_image is not None:
+if captured_image is not None:
     try:
-        # Display the uploaded image
-        image = Image.open(uploaded_image)
-        st.image(image, caption="Uploaded Image", use_column_width=True)
+        # Display the captured image
+        image = Image.open(captured_image)
+        st.image(image, caption="Captured Image", use_column_width=True)
 
-        # Convert the uploaded file to bytes for the POST request
+        # Convert the captured image to bytes for the POST request
         st.write("Classifying the waste...")
-        files = {"image": uploaded_image.getvalue()}
+        files = {"image": captured_image.getvalue()}
         
         # Replace with the active ngrok or backend URL
         backend_url = "https://f24b-34-82-79-220.ngrok-free.app/process"
