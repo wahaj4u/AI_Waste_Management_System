@@ -3,3 +3,4 @@ torch
 pillow
 numpy
 streamlit
+torchvision
