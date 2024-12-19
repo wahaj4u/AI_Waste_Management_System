@@ -32,6 +32,42 @@ disposal_methods = {
         "recyclable": "Yes",
         "compostable": "No"
     },
+    "paper_towels": {
+        "recommendation": "Tear into smaller pieces and place in the compost bin. Do not dispose of in recycling.",
+        "type": "Compostable",
+        "recyclable": "No",
+        "compostable": "Yes"
+    },
+    "cardboard_boxes": {
+        "recommendation": "Flatten the boxes and place them in your recycling bin. Remove any tape and packing materials.",
+        "type": "Recyclable",
+        "recyclable": "Yes",
+        "compostable": "No"
+    },
+    "glass_jars": {
+        "recommendation": "Rinse out jars and place them in your recycling bin. If broken, dispose of in your waste bin as glass can be hazardous.",
+        "type": "Recyclable",
+        "recyclable": "Yes",
+        "compostable": "No"
+    },
+    "styrofoam_trays": {
+        "recommendation": "Unfortunately, Styrofoam is not recyclable. Dispose of it in your waste bin.",
+        "type": "Non-Recyclable",
+        "recyclable": "No",
+        "compostable": "No"
+    },
+    "electronics": {
+        "recommendation": "Take electronics to a local e-waste recycling facility. Do not dispose of them in regular trash bins.",
+        "type": "Hazardous",
+        "recyclable": "No",
+        "compostable": "No"
+    },
+    "textiles": {
+        "recommendation": "Donate or recycle old clothes. Do not dispose of them in regular waste bins.",
+        "type": "Recyclable",
+        "recyclable": "Yes",
+        "compostable": "No"
+    }
     # Add additional items as needed
 }
 
@@ -42,12 +78,16 @@ if captured_image is not None:
     try:
         # Display the captured image
         image = Image.open(captured_image)
-        st.image(image, caption="Captured Image", use_column_width=True)
-
-        # Convert the captured image to bytes for the POST request
-        st.write("Classifying the waste...")
-        files = {"image": captured_image.getvalue()}
         
+        # Resize the image for quicker processing
+        image_resized = image.resize((224, 224))  # Resize to 224x224 for standard image sizes used in deep learning models
+        
+        st.image(image_resized, caption="Resized Captured Image", use_column_width=True)
+
+        # Convert the resized image to bytes for the POST request
+        img_byte_arr = image_resized.tobytes()
+        files = {'image': img_byte_arr}
+
         # Replace with the active ngrok or backend URL
         backend_url = "https://9c9c-34-138-89-45.ngrok-free.app//process"
 
