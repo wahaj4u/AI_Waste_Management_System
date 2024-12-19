@@ -12,19 +12,33 @@ from torchvision.models.feature_extraction import create_feature_extractor
 class WasteClassificationModel(nn.Module):
     def __init__(self):
         super().__init__()
+        # Load the MobileNetV3 model pre-trained on ImageNet
         self.mobnet = mobilenet_v3_small(weights=MobileNet_V3_Small_Weights.IMAGENET1K_V1)
+        
+        # Feature extraction from the 'features.12' layer
         self.feature_extraction = create_feature_extractor(
             self.mobnet, return_nodes={'features.12': 'mob_feature'}
         )
+        
+        # Define a few custom layers for the model
         self.conv1 = nn.Conv2d(576, 300, 3)
-        self.fc1 = nn.Linear(10800, 30)
+        self.fc1 = nn.Linear(10800, 30)  # 30 output classes (waste types)
         self.dr = nn.Dropout()
 
     def forward(self, x):
+        # Extract features from the MobileNetV3 model
         feature_layer = self.feature_extraction(x)['mob_feature']
+        
+        # Pass the feature through a convolutional layer and apply ReLU
         x = F.relu(self.conv1(feature_layer))
+        
+        # Flatten the output for feeding into the fully connected layer
         x = x.flatten(start_dim=1)
+        
+        # Apply dropout
         x = self.dr(x)
+        
+        # Pass through the final fully connected layer
         output = self.fc1(x)
         return output
 
