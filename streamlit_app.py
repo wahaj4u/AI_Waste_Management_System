@@ -54,7 +54,7 @@ if uploaded_image is not None:
         files = {"image": uploaded_image.getvalue()}
         
         # Replace with the active ngrok or backend URL
-        backend_url = "https://75ad-35-239-193-174.ngrok-free.app/process"
+        backend_url = "https://6546-34-138-89-45.ngrok-free.app/process"
 
         # Send the image to the Flask backend
         response = requests.post(backend_url, files=files)
