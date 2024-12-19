@@ -1,82 +1,69 @@
 import streamlit as st
-import requests
+import torch
+from torchvision.transforms import functional as TF
 from PIL import Image
+import torch.nn as nn
+import torch.nn.functional as F
+from torchvision.models import mobilenet_v3_small
+from torchvision.models.feature_extraction import create_feature_extractor
 
-# Title of the Streamlit App
+# Define the WasteClassificationModel class
+class WasteClassificationModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.mobnet = mobilenet_v3_small(weights=torchvision.models.MobileNet_V3_Small_Weights.IMAGENET1K_V1)
+        self.feature_extraction = create_feature_extractor(self.mobnet, return_nodes={'features.12': 'mob_feature'})
+        self.conv1 = nn.Conv2d(576, 300, 3)
+        self.fc1 = nn.Linear(10800, 30)
+        self.dr = nn.Dropout()
+
+    def forward(self, x):
+        feature_layer = self.feature_extraction(x)['mob_feature']
+        x = F.relu(self.conv1(feature_layer))
+        x = x.flatten(start_dim=1)
+        x = self.dr(x)
+        output = self.fc1(x)
+        return output
+
+# Load the model and checkpoint
+@st.cache_resource
+def load_model(checkpoint_path):
+    model = WasteClassificationModel()
+    checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
+    model.load_state_dict(checkpoint['model_state_dict'])
+    model.eval()
+    return model
+
+model = load_model("train_loss_best.pt")
+
+# Define the prediction function
+def predict(image, model):
+    transform = TF.Compose([
+        TF.Resize((256, 256)),
+        TF.ToTensor(),
+        TF.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)),
+    ])
+    image = transform(image).unsqueeze(0)  # Add batch dimension
+    outputs = model(image)
+    _, predicted = torch.max(outputs, 1)
+    return predicted.item()
+
+# Define the class names
+class_names = ["aerosol_cans", "aluminum_food_cans", "aluminum_soda_cans", "cardboard_boxes", "cardboard_packaging", "clothing", "coffee_grounds", "disposable_plastic_cutlery", "eggshells", "food_waste", 
+    "glass_beverage_bottles", "glass_cosmetic_containers", "glass_food_jars", "magazines", "newspaper", "office_paper", "paper_cups", "plastic_cup_lids", "plastic_detergent_bottles", 
+    "plastic_food_containers", "plastic_shopping_bags", "plastic_soda_bottles", "plastic_straws", "plastic_trash_bags", "plastic_water_bottles", "shoes", "steel_food_cans", "styrofoam_cups", "styrofoam_food_containers", "tea_bags" ]
+
+# Streamlit App UI
 st.title("Waste Classification App")
-st.write("Capture an image using your camera to classify the waste and get disposal instructions.")
+st.write("Upload an image to classify the type of waste.")
 
-# Disposal recommendation dictionary
-disposal_methods = {
-    "aerosol_cans": {
-        "recommendation": "Make sure the can is empty before disposal. Check with your local recycling program for acceptance. If not recyclable, dispose of as hazardous waste.",
-        "type": "Hazardous",
-        "recyclable": "Partially Recyclable",
-        "compostable": "No"
-    },
-    "aluminum_food_cans": {
-        "recommendation": "Rinse the can thoroughly to remove any food residue. Place it in your recycling bin. Crushing the can saves space but is optional.",
-        "type": "Recyclable",
-        "recyclable": "Yes",
-        "compostable": "No"
-    },
-    "coffee_grounds": {
-        "recommendation": "Coffee grounds are rich in nutrients and can be composted. Add them to your compost bin or garden soil. If composting is not an option, dispose of them in organic waste bins.",
-        "type": "Compostable",
-        "recyclable": "No",
-        "compostable": "Yes"
-    },
-    "plastic_soda_bottles": {
-        "recommendation": "Empty and rinse the bottle before recycling. Leave the cap on if your recycling program accepts it. Crush the bottle to save space if desired.",
-        "type": "Recyclable",
-        "recyclable": "Yes",
-        "compostable": "No"
-    },
-    # Add additional items as needed
-}
-
-# Camera input section
-captured_image = st.camera_input("Capture an image using your camera")
-
-if captured_image is not None:
-    try:
-        # Display the captured image
-        image = Image.open(captured_image)
-        st.image(image, caption="Captured Image", use_column_width=True)
-
-        # Convert the captured image to bytes for the POST request
-        st.write("Classifying the waste...")
-        files = {"image": captured_image.getvalue()}
-        
-        # Replace with the active ngrok or backend URL
-        backend_url = "https://5021-34-138-89-45.ngrok-free.app/process"
-
-        # Send the image to the Flask backend
-        response = requests.post(backend_url, files=files)
-
-        if response.status_code == 200:
-            result = response.json()
-            category = result.get('category', 'unknown').lower()
-            
-            # Fetch disposal information
-            waste_info = disposal_methods.get(category, {
-                "recommendation": "No specific instructions available.",
-                "type": "Unknown",
-                "recyclable": "Unknown",
-                "compostable": "Unknown"
-            })
-            
-            # Display the results
-            st.write("### Classification Result:")
-            st.write(f"**Category**: {result.get('category', 'N/A')}")
-            st.write(f"**Type**: {waste_info['type']}")
-            st.write(f"**Recyclable**: {waste_info['recyclable']}")
-            st.write(f"**Compostable**: {waste_info['compostable']}")
-            st.write(f"**Disposal Recommendation**: {waste_info['recommendation']}")
-        else:
-            st.error(f"Error: Unable to classify the image. Status code: {response.status_code}")
-            st.error(f"Response: {response.text}")
-    except requests.exceptions.ConnectionError:
-        st.error("Failed to connect to the backend. Please ensure the backend is running and the URL is correct.")
-    except Exception as e:
-        st.error(f"An unexpected error occurred: {str(e)}")
+# File uploader
+uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "png", "jpeg"])
+if uploaded_file:
+    image = Image.open(uploaded_file).convert("RGB")
+    st.image(image, caption="Uploaded Image", use_column_width=True)
+    
+    # Prediction
+    st.write("Classifying...")
+    predicted_class = predict(image, model)
+    st.write(f"Predicted Class: **{class_names[predicted_class]}**")
