@@ -1,6 +1,24 @@
 import streamlit as st
 import requests
 from PIL import Image
+import torch
+import torchvision.transforms as T
+
+# Load the trained model from your GitHub repository
+model_url = "https://github.com/wahaj4u/AI_Waste_Management_System/blob/main/train_account_best.pth"
+model_path = "train_account_best.pth"
+torch.hub.download_url_to_file(model_url, model_path)
+
+# Load the model
+model = torch.load(model_path)
+model.eval()
+
+# Image transformations
+preprocess = T.Compose([
+    T.Resize((224, 224)),
+    T.ToTensor(),
+    T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+])
 
 # Title of the Streamlit App
 st.title("Waste Classification App")
@@ -176,39 +194,32 @@ if captured_image is not None:
         image = Image.open(captured_image)
         st.image(image, caption="Captured Image", use_column_width=True)
 
-        # Convert the captured image to bytes for the POST request
-        st.write("Classifying the waste...")
-        files = {"image": captured_image.getvalue()}
+        # Preprocess the image
+        input_image = preprocess(image)
+        input_image = input_image.unsqueeze(0)  # Add batch dimension
+
+        # Run the model on the image
+        with torch.no_grad():
+            outputs = model(input_image)
         
-        # Replace with the active ngrok or backend URL
-        backend_url = "https://1e6f-34-145-73-108.ngrok-free.app/process"
-
-        # Send the image to the Flask backend
-        response = requests.post(backend_url, files=files)
-
-        if response.status_code == 200:
-            result = response.json()
-            category = result.get('category', 'unknown').lower()
-            
-            # Fetch disposal information
-            waste_info = disposal_methods.get(category, {
-                "recommendation": "No specific instructions available.",
-                "type": "Unknown",
-                "recyclable": "Unknown",
-                "compostable": "Unknown"
-            })
-            
-            # Display the results
-            st.write("### Classification Result:")
-            st.write(f"**Category**: {result.get('category', 'N/A')}")
-            st.write(f"**Type**: {waste_info['type']}")
-            st.write(f"**Recyclable**: {waste_info['recyclable']}")
-            st.write(f"**Compostable**: {waste_info['compostable']}")
-            st.write(f"**Disposal Recommendation**: {waste_info['recommendation']}")
-        else:
-            st.error(f"Error: Unable to classify the image. Status code: {response.status_code}")
-            st.error(f"Response: {response.text}")
-    except requests.exceptions.ConnectionError:
-        st.error("Failed to connect to the backend. Please ensure the backend is running and the URL is correct.")
+        # Get the category with the highest score
+        _, predicted_idx = torch.max(outputs, 1)
+        category = model.classes[predicted_idx.item()].lower()
+        
+        # Fetch disposal information
+        waste_info = disposal_recommendations.get(category, {
+            "recommendation": "No specific instructions available.",
+            "type": "Unknown",
+            "recyclable": "Unknown",
+            "compostable": "Unknown"
+        })
+        
+        # Display the results
+        st.write("### Classification Result:")
+        st.write(f"**Category**: {category}")
+        st.write(f"**Type**: {waste_info['type']}")
+        st.write(f"**Recyclable**: {waste_info['recyclable']}")
+        st.write(f"**Compostable**: {waste_info['compostable']}")
+        st.write(f"**Disposal Recommendation**: {waste_info['recommendation']}")
     except Exception as e:
-        st.error(f"An unexpected error occurred: {str(e)}")
+        st.error(f"An error occurred: {str(e)}")
