@@ -1,80 +1,103 @@
 import streamlit as st
-from PIL import Image
 import torch
-from model import WasteClassificationModel  # Import your model class
-import requests
+import torchvision.transforms as v2
+from PIL import Image
+from model import WasteClassificationModel
 
-# Title of the Streamlit App
-st.title("Waste Classification App")
-st.write("Capture an image using your camera to classify the waste and get disposal instructions.")
-
-# Function to load the model
-def load_model():
-    model = WasteClassificationModel()
-    checkpoint = torch.load("train_account_best.pth")
-    model.load_state_dict(checkpoint['model_state_dict'])
-    model.eval()  # Set the model to evaluation mode
-    return model
-
-# Disposal recommendation dictionary
-disposal_methods = {
-    "aerosol_cans": {
-        "recommendation": "Make sure the can is empty before disposal...",
-        "type": "Hazardous",
-        "recyclable": "Partially Recyclable",
-        "compostable": "No"
-    },
-    "aluminum_food_cans": {
-        "recommendation": "Rinse the can thoroughly to remove any food residue...",
-        "type": "Recyclable",
-        "recyclable": "Yes",
-        "compostable": "No"
-    },
-    # Add additional items as needed
-}
-
-# Camera input section
-captured_image = st.camera_input("Capture an image using your camera")
-
-if captured_image is not None:
+# Load the model
+def load_model(model_url):
     try:
-        # Display the captured image
-        image = Image.open(captured_image)
-        st.image(image, caption="Captured Image", use_column_width=True)
-
-        # Convert the captured image to bytes for the POST request
-        st.write("Classifying the waste...")
-        files = {"image": captured_image.getvalue()}
-        
-        # Replace with the active ngrok or backend URL
-        backend_url = "https://5021-34-138-89-45.ngrok-free.app/process"
-
-        # Send the image to the Flask backend
-        response = requests.post(backend_url, files=files)
-
-        if response.status_code == 200:
-            result = response.json()
-            category = result.get('category', 'unknown').lower()
-            
-            # Fetch disposal information
-            waste_info = disposal_methods.get(category, {
-                "recommendation": "No specific instructions available.",
-                "type": "Unknown",
-                "recyclable": "Unknown",
-                "compostable": "Unknown"
-            })
-            
-            # Display the results
-            st.write("### Classification Result:")
-            st.write(f"**Category**: {result.get('category', 'N/A')}")
-            st.write(f"**Type**: {waste_info['type']}")
-            st.write(f"**Recyclable**: {waste_info['recyclable']}")
-            st.write(f"**Compostable**: {waste_info['compostable']}")
-            st.write(f"**Disposal Recommendation**: {waste_info['recommendation']}")
-        else:
-            st.error(f"Error: Unable to classify the image. Status code: {response.status_code}")
-            st.error(f"Response: {response.text}")
-    except requests.exceptions.ConnectionError:
-        st.error("Failed to connect to the backend. Please ensure the backend is running and the URL is correct.")
+        model_weights = torch.hub.load_state_dict_from_url(model_url, map_location=torch.device('cpu'))
+        return model_weights
     except Exception as e:
-        st.error(f"An unexpected error occurred: {str(e)}")
+        st.error(f"Error loading model weights: {e}")
+        return None
+
+# Define the Waste Dataset
+class WasteDataset(torch.utils.data.Dataset):
+    def __init__(self, root_dir, transform=None):
+        self.root_dir = root_dir
+        self.transform = transform
+        self.classes = sorted(os.listdir(root_dir))
+        self.image_paths = []
+        self.labels = []
+
+        for i, class_name in enumerate(self.classes):
+            class_dir = os.path.join(root_dir, class_name)
+            for subfolder in ['default', 'real_world']:
+                subfolder_dir = os.path.join(class_dir, subfolder)
+                image_names = os.listdir(subfolder_dir)
+                random.shuffle(image_names)
+
+                for image_name in image_names:
+                    self.image_paths.append(os.path.join(subfolder_dir, image_name))
+                    self.labels.append(i)
+
+    def __len__(self):
+        return len(self.image_paths)
+
+    def __getitem__(self, index):
+        image_path = self.image_paths[index]
+        label = self.labels[index]
+        image = Image.open(image_path).convert('RGB')
+
+        if self.transform:
+            image = self.transform(image)
+
+        data = {
+            "image":image,
+            "label":label
+        }
+        return data
+
+def main():
+    st.title("Waste Classification App")
+
+    # Load the model
+    model_url = "zzzz"
+    model_weights = load_model(model_url)
+    if model_weights is None:
+        return
+
+    model = WasteClassificationModel()
+    model.load_state_dict(model_weights)
+    model.eval()  # Set model to evaluation mode
+
+    # Transform definitions
+    train_pil_transform = v2.Compose([
+        v2.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.2),
+        v2.RandomAffine(degrees=5, translate=(0.1, 0.1), scale=(0.8, 1.3),
+                        interpolation=torchvision.transforms.InterpolationMode.BILINEAR),
+        v2.Resize(size=(256, 256)),
+        v2.GaussianBlur(kernel_size=(7, 13), sigma=(0.1, 0.2)),
+        v2.PILToTensor(),
+        v2.ToDtype(torch.float32),
+        v2.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
+    ])
+
+    test_pil_transform = v2.Compose([
+        v2.Resize(size=(256, 256)),
+        v2.PILToTensor(),
+        v2.ToDtype(torch.float32),
+        v2.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
+    ])
+
+    # Application logic
+    uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
+    
+    if uploaded_file is not None:
+        image = Image.open(uploaded_file)
+        image = test_pil_transform(image).unsqueeze(0)  # Add batch dimension
+
+        # Perform inference
+        with torch.no_grad():
+            outputs = model(image)
+            _, preds = torch.max(outputs, 1)
+            class_names = model.classes
+            prediction = class_names[preds[0].item()]
+        
+        st.image(image, caption="Uploaded Image", use_column_width=True)
+        st.write(f"Prediction: {prediction}")
+
+if __name__ == "__main__":
+    main()
