@@ -54,7 +54,7 @@ def main():
     st.title("Waste Classification App")
 
     # Load the model
-    model_url = "zzzz"
+    model_url = "train_account_best.pth"
     model_weights = load_model(model_url)
     if model_weights is None:
         return
