@@ -3,15 +3,34 @@ from PIL import Image
 import torch
 import torchvision.transforms as transforms
 
-# Load the pre-trained model
+# Define the model class
+class WasteClassificationModel(torch.nn.Module):
+    # Define the layers of your model here
+    def __init__(self):
+        super(WasteClassificationModel, self).__init__()
+        # Example layers, adjust according to your actual model architecture
+        self.conv1 = torch.nn.Conv2d(3, 64, kernel_size=3, padding=1)
+        self.conv2 = torch.nn.Conv2d(64, 128, kernel_size=3, padding=1)
+        self.fc1 = torch.nn.Linear(128 * 224 * 224, 1024)
+        self.fc2 = torch.nn.Linear(1024, 4)  # Assuming 4 classes for classification
+    
+    def forward(self, x):
+        x = torch.relu(self.conv1(x))
+        x = torch.relu(self.conv2(x))
+        x = x.view(-1, 128 * 224 * 224)  # Flatten the tensor
+        x = torch.relu(self.fc1(x))
+        x = self.fc2(x)
+        return x
+
+# Load the pre-trained model weights from GitHub
 model_url = 'https://github.com/wahaj4u/AI_Waste_Management_System/raw/main/train_account_best.pth'
 
 try:
     # Load model weights from the URL
     state_dict = torch.hub.load_state_dict_from_url(model_url, map_location=torch.device('cpu'))
     
-    # Create the model instance (make sure your model class matches this call)
-    model = WasteClassificationModel()  # Replace with your actual model class initialization
+    # Initialize your model
+    model = WasteClassificationModel()  # Adjust this if your model has a different initialization method
     model.load_state_dict(state_dict)
     model.eval()  # Set model to evaluation mode
 except FileNotFoundError:
