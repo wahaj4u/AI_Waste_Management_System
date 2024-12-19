@@ -3,9 +3,6 @@ import numpy as np
 from PIL import Image
 import tensorflow as tf
 
-# Install TensorFlow if it's not already installed
-!pip install tensorflow
-
 # Load the pre-trained MobileNetV2 model for waste classification
 model = tf.keras.applications.MobileNetV2(weights='imagenet', input_shape=(224, 224, 3))
 
