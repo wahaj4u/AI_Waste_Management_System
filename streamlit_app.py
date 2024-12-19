@@ -4,7 +4,7 @@ from PIL import Image
 from io import BytesIO
 
 # Title of the Streamlit App
-st.title("AI Waste Classification Application")
+st.title("Plastic Waste Classification App")
 st.write("Capture an image using your camera to classify plastic soda bottles and get disposal instructions.")
 
 # Disposal recommendation dictionary
@@ -41,7 +41,7 @@ if captured_image is not None:
 
             # Fetch segmented image
             segmented_image_data = result.get('segmented_image')
-            category = result.get('category', 'unknown').lower()
+            category = result.get('category', '').strip().lower()
 
             if segmented_image_data:
                 # Convert segmented image bytes to displayable format
@@ -64,7 +64,7 @@ if captured_image is not None:
                 st.write(f"**Compostable**: {waste_info['compostable']}")
                 st.write(f"**Disposal Recommendation**: {waste_info['recommendation']}")
             else:
-                st.warning("This app currently supports classification of plastic soda bottles only.")
+                st.warning(f"Classification result: '{category}'. This app currently supports classification of plastic soda bottles only.")
         else:
             st.error(f"Error: Unable to process the image. Status code: {response.status_code}")
             st.error(f"Response: {response.text}")
