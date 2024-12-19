@@ -1,6 +1,6 @@
 import streamlit as st
 import torch
-from torchvision.transforms import functional as TF
+from torchvision import transforms
 from PIL import Image
 import torch.nn as nn
 import torch.nn.functional as F
@@ -42,10 +42,10 @@ model = load_model("train_loss_best.pt")
 
 # Define the prediction function
 def predict(image, model):
-    transform = TF.Compose([
-        TF.Resize((256, 256)),
-        TF.ToTensor(),
-        TF.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)),
+    transform = transforms.Compose([  # Correct usage of Compose
+        transforms.Resize((256, 256)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)),
     ])
     image = transform(image).unsqueeze(0)  # Add batch dimension
     outputs = model(image)
