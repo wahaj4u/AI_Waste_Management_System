@@ -4,15 +4,18 @@ from torchvision.transforms import functional as TF
 from PIL import Image
 import torch.nn as nn
 import torch.nn.functional as F
-from torchvision.models import mobilenet_v3_small
+from torchvision.models import mobilenet_v3_small, MobileNet_V3_Small_Weights
 from torchvision.models.feature_extraction import create_feature_extractor
 
 # Define the WasteClassificationModel class
 class WasteClassificationModel(nn.Module):
     def __init__(self):
         super().__init__()
-        self.mobnet = mobilenet_v3_small(weights=torchvision.models.MobileNet_V3_Small_Weights.IMAGENET1K_V1)
-        self.feature_extraction = create_feature_extractor(self.mobnet, return_nodes={'features.12': 'mob_feature'})
+        # Load the MobileNetV3 with pretrained weights
+        self.mobnet = mobilenet_v3_small(weights=MobileNet_V3_Small_Weights.IMAGENET1K_V1)
+        self.feature_extraction = create_feature_extractor(
+            self.mobnet, return_nodes={'features.12': 'mob_feature'}
+        )
         self.conv1 = nn.Conv2d(576, 300, 3)
         self.fc1 = nn.Linear(10800, 30)
         self.dr = nn.Dropout()
@@ -34,6 +37,7 @@ def load_model(checkpoint_path):
     model.eval()
     return model
 
+# Path to the saved model file
 model = load_model("train_loss_best.pt")
 
 # Define the prediction function
@@ -49,9 +53,16 @@ def predict(image, model):
     return predicted.item()
 
 # Define the class names
-class_names = ["aerosol_cans", "aluminum_food_cans", "aluminum_soda_cans", "cardboard_boxes", "cardboard_packaging", "clothing", "coffee_grounds", "disposable_plastic_cutlery", "eggshells", "food_waste", 
-    "glass_beverage_bottles", "glass_cosmetic_containers", "glass_food_jars", "magazines", "newspaper", "office_paper", "paper_cups", "plastic_cup_lids", "plastic_detergent_bottles", 
-    "plastic_food_containers", "plastic_shopping_bags", "plastic_soda_bottles", "plastic_straws", "plastic_trash_bags", "plastic_water_bottles", "shoes", "steel_food_cans", "styrofoam_cups", "styrofoam_food_containers", "tea_bags" ]
+class_names = [
+    "aerosol_cans", "aluminum_food_cans", "aluminum_soda_cans", "cardboard_boxes",
+    "cardboard_packaging", "clothing", "coffee_grounds", "disposable_plastic_cutlery",
+    "eggshells", "food_waste", "glass_beverage_bottles", "glass_cosmetic_containers",
+    "glass_food_jars", "magazines", "newspaper", "office_paper", "paper_cups",
+    "plastic_cup_lids", "plastic_detergent_bottles", "plastic_food_containers",
+    "plastic_shopping_bags", "plastic_soda_bottles", "plastic_straws", "plastic_trash_bags",
+    "plastic_water_bottles", "shoes", "steel_food_cans", "styrofoam_cups",
+    "styrofoam_food_containers", "tea_bags"
+]
 
 # Streamlit App UI
 st.title("Waste Classification App")
