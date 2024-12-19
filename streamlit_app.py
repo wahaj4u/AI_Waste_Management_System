@@ -54,19 +54,17 @@ if captured_image is not None:
         image = Image.open(captured_image)
         st.image(image, caption="Captured Image", use_column_width=True)
 
-        # Convert the captured image to bytes for the POST request
-        st.write("Classifying the waste...")
-        files = {"image": captured_image.getvalue()}
-        
-        # Replace with the active ngrok or backend URL
-        backend_url = "https://5021-34-138-89-45.ngrok-free.app/process"
+        # Convert the captured image to tensor for the model
+        image_tensor = data_transforms["test"](image).unsqueeze(0)  # Batch size 1
 
-        # Send the image to the Flask backend
-        response = requests.post(backend_url, files=files)
+        # Load the model
+        model = load_model()
 
-        if response.status_code == 200:
-            result = response.json()
-            category = result.get('category', 'unknown').lower()
+        # Classify the image
+        with torch.no_grad():
+            output = model(image_tensor)
+            _, predicted = torch.max(output, 1)
+            category = class_names[predicted.item()].lower()
             
             # Fetch disposal information
             waste_info = disposal_methods.get(category, {
@@ -78,15 +76,10 @@ if captured_image is not None:
             
             # Display the results
             st.write("### Classification Result:")
-            st.write(f"**Category**: {result.get('category', 'N/A')}")
+            st.write(f"**Category**: {category}")
             st.write(f"**Type**: {waste_info['type']}")
             st.write(f"**Recyclable**: {waste_info['recyclable']}")
             st.write(f"**Compostable**: {waste_info['compostable']}")
             st.write(f"**Disposal Recommendation**: {waste_info['recommendation']}")
-        else:
-            st.error(f"Error: Unable to classify the image. Status code: {response.status_code}")
-            st.error(f"Response: {response.text}")
-    except requests.exceptions.ConnectionError:
-        st.error("Failed to connect to the backend. Please ensure the backend is running and the URL is correct.")
     except Exception as e:
         st.error(f"An unexpected error occurred: {str(e)}")
