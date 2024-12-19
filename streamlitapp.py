@@ -4,13 +4,21 @@ import torch
 import torchvision.transforms as transforms
 
 # Load the pre-trained model
-model_path = 'https://github.com/wahaj4u/AI_Waste_Management_System/raw/main/train_account_best.pth'
+model_url = 'https://github.com/wahaj4u/AI_Waste_Management_System/raw/main/train_account_best.pth'
+
 try:
-    model = torch.hub.load_state_dict_from_url(model_path, map_location=torch.device('cpu'))  # Load model on CPU
-    model.eval()
+    # Load model weights from the URL
+    state_dict = torch.hub.load_state_dict_from_url(model_url, map_location=torch.device('cpu'))
+    
+    # Create the model instance (make sure your model class matches this call)
+    model = WasteClassificationModel()  # Replace with your actual model class initialization
+    model.load_state_dict(state_dict)
+    model.eval()  # Set model to evaluation mode
 except FileNotFoundError:
     st.error("Model file 'train_account_best.pth' not found. Please ensure it is in the correct location.")
     st.stop()
+except Exception as e:
+    st.error(f"Failed to load the model due to an error: {str(e)}")
 
 # Title of the Streamlit App
 st.title("AI Waste Classification Application")
