@@ -4,7 +4,7 @@ from PIL import Image
 from io import BytesIO
 
 # Title of the Streamlit App
-st.title("Plastic Waste Classification App")
+st.title("AI Waste Classification Application")
 st.write("Capture an image using your camera to classify plastic soda bottles and get disposal instructions.")
 
 # Disposal recommendation dictionary
