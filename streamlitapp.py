@@ -1,71 +1,69 @@
 import streamlit as st
-import numpy as np
+import torch
 from PIL import Image
-import tensorflow as tf
+from torchvision import transforms
+import requests
+from sam import SamPredictor
 
-# Load the pre-trained MobileNetV2 model for waste classification
-model = tf.keras.applications.MobileNetV2(weights='imagenet', input_shape=(224, 224, 3))
+# Load SAM model
+sam_model_path = 'path_to_sam_vit_b.pth'  # Path to the SAM model .pth file
+sam_model = SamModel.from_pretrained(sam_model_path)
+sam_model.to('cuda' if torch.cuda.is_available() else 'cpu')
+predictor = SamPredictor(sam_model)
 
-# Dictionary for disposal recommendation based on category
+# Load MobileNetV2
+mobilenet_v2_model = torch.hub.load('pytorch/vision:v0.10.0', 'mobilenet_v2', pretrained=True)
+mobilenet_v2_model.eval()
+
+# Disposal recommendation dictionary
 disposal_methods = {
-    "aerosol_cans": {
-        "recommendation": "Make sure the can is empty before disposal. Check with your local recycling program for acceptance. If not recyclable, dispose of as hazardous waste.",
-        "type": "Hazardous",
-        "recyclable": "Partially Recyclable",
-        "compostable": "No"
-    },
-    "aluminum_food_cans": {
-        "recommendation": "Rinse the can thoroughly to remove any food residue. Place it in your recycling bin. Crushing the can saves space but is optional.",
-        "type": "Recyclable",
-        "recyclable": "Yes",
-        "compostable": "No"
-    },
-    # Add more items as needed
+    "aerosol_cans": "Make sure the can is empty before disposal. Check with your local recycling program for acceptance...",
+    # Add all disposal methods as given in your dictionary...
 }
 
-# Title of the Streamlit App
-st.title("Waste Classification App")
-st.write("Capture an image using your camera to classify the waste and get disposal instructions.")
+def classify_image(image):
+    # Transform image for MobileNetV2
+    preprocess = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ])
+    
+    # Transform and prepare image
+    input_tensor = preprocess(image).unsqueeze(0)
+    input_tensor = input_tensor.to('cuda' if torch.cuda.is_available() else 'cpu')
 
-# Camera input section
-captured_image = st.camera_input("Capture an image using your camera")
+    # Predict using MobileNetV2
+    with torch.no_grad():
+        outputs = mobilenet_v2_model(input_tensor)
+    
+    # Get predicted class
+    _, predicted_class_idx = outputs.max(1)
+    return predicted_class_idx.item()
 
-if captured_image is not None:
-    try:
-        # Display the captured image
-        image = Image.open(captured_image)
-        
-        # Resize the image for MobileNetV2 input
-        image_resized = image.resize((224, 224))  # Resize to 224x224 for standard image sizes used in deep learning models
-        
-        st.image(image_resized, caption="Resized Captured Image", use_column_width=True)
+def main():
+    st.title("Waste Sorting Application")
+    
+    # Capture image
+    if st.button('Capture Image'):
+        image_file = st.camera_input("Capture a Waste Image")
+        if image_file:
+            image = Image.open(image_file)
 
-        # Preprocess the image for MobileNetV2
-        img_array = np.array(image_resized)
-        img_array = tf.keras.applications.mobilenet_v2.preprocess_input(np.expand_dims(img_array, axis=0))
+            # Segment using SAM2
+            predictor.set_image(image)
+            masks, scores, logits = predictor.predict('cpu')
 
-        # Predict using the model
-        preds = model.predict(img_array)
-        predictions = tf.keras.applications.mobilenet_v2.decode_predictions(preds, top=1)[0]
+            # Display segmented image
+            st.image(masks, caption="Segmented Image")
 
-        # Get the predicted category
-        category = predictions[0][1].lower()  # Convert to lowercase for consistency
+            # Classify using MobileNetV2
+            class_idx = classify_image(masks)
+            category = mobilenet_v2_model.classes[class_idx]  # Map index to category
+            
+            # Provide disposal recommendation
+            recommendation = disposal_methods.get(category, "No disposal information available.")
+            st.write(f"Disposal Recommendation: {recommendation}")
 
-        # Fetch disposal information
-        waste_info = disposal_methods.get(category, {
-            "recommendation": "No specific instructions available.",
-            "type": "Unknown",
-            "recyclable": "Unknown",
-            "compostable": "Unknown"
-        })
-
-        # Display the results
-        st.write("### Classification Result:")
-        st.write(f"**Category**: {predictions[0][1]}")
-        st.write(f"**Type**: {waste_info['type']}")
-        st.write(f"**Recyclable**: {waste_info['recyclable']}")
-        st.write(f"**Compostable**: {waste_info['compostable']}")
-        st.write(f"**Disposal Recommendation**: {waste_info['recommendation']}")
-        
-    except Exception as e:
-        st.error(f"An error occurred: {str(e)}")
+if __name__ == '__main__':
+    main()
