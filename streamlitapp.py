@@ -1,3 +1,5 @@
+import os
+import urllib.request
 import streamlit as st
 import torch
 from torchvision import transforms
@@ -26,16 +28,33 @@ class WasteClassificationModel(nn.Module):
         output = self.fc1(x)
         return output
 
+def download_from_google_drive(url, destination):
+    if not os.path.exists(destination):
+        print("Downloading model checkpoint from Google Drive...")
+        urllib.request.urlretrieve(url, destination)
+        print("Download complete.")
+
+# Google Drive direct download URL
+checkpoint_url = "https://drive.google.com/uc?id=1oNibX-E2CYzcmViFNecM98NByp6g0pnE"
+checkpoint_path = "train_loss_best.pt"
+
+# Download the checkpoint if it doesn't exist locally
+download_from_google_drive(checkpoint_url, checkpoint_path)
+
 @st.cache_resource
 def load_model(checkpoint_path):
     model = WasteClassificationModel()
-    checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
-    print("Checkpoint Keys:", checkpoint.keys())  # Debugging
-    model.load_state_dict(checkpoint['model_state_dict'])
-    model.eval()
+    try:
+        checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
+        model.load_state_dict(checkpoint['model_state_dict'])
+        model.eval()
+    except (EOFError, FileNotFoundError) as e:
+        print(f"Error loading checkpoint: {e}")
+        st.error("Checkpoint file is missing or corrupted.")
+        st.stop()
     return model
 
-model = load_model("train_loss_best.pt")
+model = load_model(checkpoint_path)
 
 def predict(image, model):
     transform = transforms.Compose([
@@ -45,9 +64,7 @@ def predict(image, model):
     ])
     image = transform(image).unsqueeze(0)
     outputs = model(image)
-    print("Model Output:", outputs)  # Debugging
     _, predicted = torch.max(outputs, 1)
-    print("Predicted Class Index:", predicted.item())  # Debugging
     return predicted.item()
 
 class_names = [
