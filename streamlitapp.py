@@ -5,7 +5,7 @@ import torchvision.transforms as transforms
 
 # Load the pre-trained model
 model_path = 'train_account_best.pth'  # Ensure this file is correctly placed in your repo
-model = torch.load(model_path)
+model = torch.load(model_path, map_location=torch.device('cpu'))  # Load model on CPU
 model.eval()
 
 # Title of the Streamlit App
