@@ -1,5 +1,6 @@
 flask
 torch
+opencv-python
 pillow
 numpy
 streamlit
