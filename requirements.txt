@@ -7,3 +7,5 @@ streamlit
 torchvision
 matplotlib
 scikit-learn
+opencv-python-headless
+segment-anything
