@@ -26,7 +26,7 @@ def load_sam_model():
 @st.cache_resource
 def load_classification_model():
     num_classes = len(disposal_methods)
-    model = torch.load('/path/to/classification_model.pt', map_location=torch.device('cpu'))
+    model = torch.load('./train_account_best.pth', map_location=torch.device('cpu'))
     model.eval()
     return model
 
