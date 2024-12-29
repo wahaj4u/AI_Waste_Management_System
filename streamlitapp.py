@@ -45,22 +45,18 @@ disposal_methods = {
 }
 
 # Initialize SAM model
-@st.cache_resource
 def load_sam_model():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
-    # Dynamically resolve the checkpoint path
     checkpoint_path = os.path.join(os.path.dirname(__file__), 'sam_vit_b.pth')
-    
     try:
-        # Load the SAM model without `weights_only`
+        # Attempt to load the SAM model directly without any extra arguments
         sam = sam_model_registry['vit_b'](checkpoint=checkpoint_path)
         sam.to(device)
+        return sam
     except Exception as e:
-        st.error(f"Error loading the SAM model: {e}")
+        print(f"Error loading the SAM model: {e}")
         raise
-    
-    return SamAutomaticMaskGenerator(sam)
 
 # Load trained classification model
 @st.cache_resource
