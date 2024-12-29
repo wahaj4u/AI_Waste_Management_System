@@ -44,7 +44,7 @@ disposal_methods = {
 @st.cache_resource
 def load_sam_model():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    sam = sam_model_registry['vit_b'](checkpoint='/sam_vit_b.pth')
+    sam = sam_model_registry['vit_b'](checkpoint='sam_vit_b.pth')
     sam.to(device)
     return SamAutomaticMaskGenerator(sam)
 
