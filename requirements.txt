@@ -1,5 +1,5 @@
 flask
-torch
+torch==1.13.0  # or the version you are using
 pillow
 numpy
 streamlit
