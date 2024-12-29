@@ -44,17 +44,30 @@ disposal_methods = {
     "tea_bags": "Compost biodegradable tea bags as they are rich in organic matter. Check if your tea bags have plastic components and dispose of those in general waste."
 }
 
-# Initialize SAM model
 def load_sam_model():
+    # Detect the device (CUDA or CPU)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
-    checkpoint_path = os.path.join(os.path.dirname(__file__), 'sam_vit_b.pth')
+    # Get the path to the sam_vit_b.pth checkpoint
+    # Dynamically resolve the path relative to the current script
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    checkpoint_path = os.path.join(script_dir, 'sam_vit_b.pth')
+
+    # Log checkpoint information (for debugging purposes)
+    print(f"Checkpoint Path: {checkpoint_path}")
+    print(f"File Exists: {os.path.exists(checkpoint_path)}")
+
+    # Try loading the SAM model
     try:
-        # Attempt to load the SAM model directly without any extra arguments
+        # Initialize the SAM model
         sam = sam_model_registry['vit_b'](checkpoint=checkpoint_path)
+        
+        # Move the model to the appropriate device
         sam.to(device)
+        
+        print("Model loaded successfully!")
         return sam
     except Exception as e:
+        # Log any errors encountered during model loading
         print(f"Error loading the SAM model: {e}")
         raise
 
