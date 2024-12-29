@@ -5,6 +5,10 @@ import os
 import numpy as np
 from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
+import warnings
+
+# Suppress PyTorch untrusted model warning (not critical but just to clean up the log)
+warnings.filterwarnings("ignore", message=".*torch.load.*")
 
 # Define disposal recommendations
 disposal_methods = {
@@ -49,8 +53,8 @@ def load_sam_model():
     checkpoint_path = os.path.join(os.path.dirname(__file__), 'sam_vit_b.pth')
     
     try:
-        # Load the SAM model with weights_only=True for safer deserialization
-        sam = sam_model_registry['vit_b'](checkpoint=checkpoint_path, weights_only=True)
+        # Load the SAM model without `weights_only`
+        sam = sam_model_registry['vit_b'](checkpoint=checkpoint_path)
         sam.to(device)
     except Exception as e:
         st.error(f"Error loading the SAM model: {e}")
