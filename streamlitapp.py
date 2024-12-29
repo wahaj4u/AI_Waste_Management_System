@@ -1,7 +1,6 @@
 import streamlit as st
 import torch
 from PIL import Image
-import cv2
 import os
 import numpy as np
 from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
@@ -42,14 +41,6 @@ disposal_methods = {
 }
 
 # Initialize SAM model
-#@st.cache_resource
-#def load_sam_model():
-#   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-#   sam = sam_model_registry['vit_b'](checkpoint='sam_vit_b.pth')
- #  sam.to(device)
- #   return SamAutomaticMaskGenerator(sam)
-
-# Initialize SAM model
 @st.cache_resource
 def load_sam_model():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -57,12 +48,15 @@ def load_sam_model():
     # Dynamically resolve the checkpoint path
     checkpoint_path = os.path.join(os.path.dirname(__file__), 'sam_vit_b.pth')
     
-    # Load the SAM model (without weights_only)
-    sam = sam_model_registry['vit_b'](checkpoint=checkpoint_path)
-    sam.to(device)
+    try:
+        # Load the SAM model with weights_only set to True (for security)
+        sam = sam_model_registry['vit_b'](checkpoint=checkpoint_path, weights_only=True)
+        sam.to(device)
+    except Exception as e:
+        st.error(f"Error loading the SAM model: {e}")
+        raise
     
     return SamAutomaticMaskGenerator(sam)
-
 
 # Load trained classification model
 @st.cache_resource
