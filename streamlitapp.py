@@ -49,8 +49,8 @@ def load_sam_model():
     checkpoint_path = os.path.join(os.path.dirname(__file__), 'sam_vit_b.pth')
     
     try:
-        # Load the SAM model without weights_only argument
-        sam = sam_model_registry['vit_b'](checkpoint=checkpoint_path)
+        # Load the SAM model with weights_only=True for safer deserialization
+        sam = sam_model_registry['vit_b'](checkpoint=checkpoint_path, weights_only=True)
         sam.to(device)
     except Exception as e:
         st.error(f"Error loading the SAM model: {e}")
@@ -85,7 +85,7 @@ def main():
 
     if uploaded_image is not None:
         image = Image.open(uploaded_image)
-        st.image(image, caption="Uploaded Image", use_column_width=True)
+        st.image(image, caption="Uploaded Image", use_container_width=True)
 
         # Step 2: Segment the image
         st.subheader("Step 2: Segmenting the Image")
@@ -97,7 +97,7 @@ def main():
         if masks:
             mask = masks[0]['segmentation']  # Use the first mask
             mask_image = Image.fromarray((mask * 255).astype(np.uint8))
-            st.image(mask_image, caption="Segmented Mask", use_column_width=True)
+            st.image(mask_image, caption="Segmented Mask", use_container_width=True)
 
             # Step 3: Classify the segmented object
             st.subheader("Step 3: Classifying the Object")
