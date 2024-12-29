@@ -49,8 +49,8 @@ def load_sam_model():
     checkpoint_path = os.path.join(os.path.dirname(__file__), 'sam_vit_b.pth')
     
     try:
-        # Load the SAM model with weights_only set to True (for security)
-        sam = sam_model_registry['vit_b'](checkpoint=checkpoint_path, weights_only=True)
+        # Load the SAM model without weights_only argument
+        sam = sam_model_registry['vit_b'](checkpoint=checkpoint_path)
         sam.to(device)
     except Exception as e:
         st.error(f"Error loading the SAM model: {e}")
