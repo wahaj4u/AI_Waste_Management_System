@@ -2,6 +2,7 @@ import streamlit as st
 import torch
 from PIL import Image
 import cv2
+import os
 import numpy as np
 from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
