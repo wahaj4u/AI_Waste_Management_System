@@ -1,7 +1,7 @@
 import streamlit as st
 import torch
-import gdown
 from PIL import Image
+import cv2
 import numpy as np
 from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
@@ -40,21 +40,11 @@ disposal_methods = {
     "tea_bags": "Compost biodegradable tea bags as they are rich in organic matter. Check if your tea bags have plastic components and dispose of those in general waste."
 }
 
-# Define the Google Drive file link for SAM model
-google_drive_link = "https://drive.google.com/uc?export=download&id=1_KcHtbr2x7wxCHRLKn1r5jSUY_wK3POe"  # Update with correct ID
-
-# Download the SAM model from Google Drive
-def download_sam_model():
-    output = './sam_model.pth'  # Path to save the model locally
-    gdown.download(google_drive_link, output, quiet=False)
-    return output
-
 # Initialize SAM model
 @st.cache_resource
 def load_sam_model():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model_path = download_sam_model()  # Download the SAM model first
-    sam = sam_model_registry['vit_b'](checkpoint=model_path)  # Load model using the downloaded checkpoint
+    sam = sam_model_registry['vit_b'](checkpoint='/sam_vit_b.pth')
     sam.to(device)
     return SamAutomaticMaskGenerator(sam)
 
