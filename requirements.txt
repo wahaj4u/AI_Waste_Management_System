@@ -3,6 +3,7 @@ torch
 opencv-python
 pillow
 numpy
+gdown
 streamlit
 torchvision
 matplotlib
