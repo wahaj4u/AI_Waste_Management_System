@@ -44,7 +44,7 @@ disposal_methods = {
 
 # Function to download the SAM model if it doesn't exist locally
 def download_sam_model():
-    model_url = "https://github.com/wahaj4u/AI_Waste_Management_System/releases/download/sammodel/sam_vit_b.pth"
+    model_url = "https://github.com/wahaj4u/AI_Waste_Management_System/releases/download/sammodel/model.pth"
     checkpoint_path = os.path.join(os.path.dirname(__file__), 'sam_vit_b.pth')
 
     if not os.path.exists(checkpoint_path):
