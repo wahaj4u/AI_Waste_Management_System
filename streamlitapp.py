@@ -2,8 +2,6 @@ import streamlit as st
 import torch
 from PIL import Image
 import cv2
-import os
-import requests
 import numpy as np
 from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
@@ -42,35 +40,11 @@ disposal_methods = {
     "tea_bags": "Compost biodegradable tea bags as they are rich in organic matter. Check if your tea bags have plastic components and dispose of those in general waste."
 }
 
-# Function to download the SAM model if it doesn't exist locally
-def download_sam_model():
-    model_url = "https://github.com/wahaj4u/AI_Waste_Management_System/releases/download/sammodel/model.pth"
-    checkpoint_path = os.path.join(os.path.dirname(__file__), 'sam_vit_b.pth')
-
-    if not os.path.exists(checkpoint_path):
-        st.info("Downloading SAM model. This may take a moment...")
-        response = requests.get(model_url, stream=True)
-        if response.status_code == 200:
-            with open(checkpoint_path, "wb") as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-            st.success("SAM model downloaded successfully.")
-        else:
-            st.error(f"Failed to download SAM model. Status code: {response.status_code}")
-            return None
-    return checkpoint_path
-
 # Initialize SAM model
 @st.cache_resource
 def load_sam_model():
-    checkpoint_path = download_sam_model()
-    if checkpoint_path is None:
-        st.error("Could not load SAM model.")
-        return None
-    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    sam = sam_model_registry['vit_b'](checkpoint=checkpoint_path)
+    sam = sam_model_registry['vit_b'](checkpoint='/path/to/sam_vit_b.pth')
     sam.to(device)
     return SamAutomaticMaskGenerator(sam)
 
@@ -106,10 +80,6 @@ def main():
         # Step 2: Segment the image
         st.subheader("Step 2: Segmenting the Image")
         mask_generator = load_sam_model()
-
-        if mask_generator is None:
-            st.error("SAM model not loaded. Please check the configuration.")
-            return
 
         image_np = np.array(image)
         masks = mask_generator.generate(image_np)
