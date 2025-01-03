@@ -58,9 +58,9 @@ def preprocess_image(image):
 def main():
     st.title("WasteSort AI: Waste Sorting and Disposal Assistant")
 
-    # Step 1: Capture image
-    st.subheader("Step 1: Capture an Image")
-    uploaded_image = st.camera_input("Take a picture")
+    # Step 1: Upload image file
+    st.subheader("Step 1: Upload an Image")
+    uploaded_image = st.file_uploader("Choose an image...", type=["jpg", "png", "jpeg"])
 
     if uploaded_image is not None:
         image = Image.open(uploaded_image)
