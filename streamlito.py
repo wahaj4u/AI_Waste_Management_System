@@ -70,7 +70,6 @@ def load_classification_model():
     model.eval()
     return model
 
-
 # Preprocessing function for images
 def preprocess_image(image):
     transform = T.Compose([
