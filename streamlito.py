@@ -1,10 +1,15 @@
 import streamlit as st
 import torch
+from torch import nn
+from torchvision import transforms as T
+from torchvision.models import mobilenet_v3_small
 from PIL import Image
-from torchvision.transforms import Compose, Resize, ToTensor, Normalize
-from wastesortai_pcode import WasteClassificationModelWithMask
+import os
+import numpy as np
+from torchvision.models.feature_extraction import create_feature_extractor
+from torchvision.models import MobileNet_V3_Small_Weights
 
-# Define disposal recommendations
+# Define the disposal recommendations
 disposal_methods = {
     "aerosol_cans": "Make sure the can is empty before disposal. Check with your local recycling program for acceptance. If not recyclable, dispose of as hazardous waste.",
     "aluminum_food_cans": "Rinse the can thoroughly to remove any food residue. Place it in your recycling bin. Crushing the can saves space but is optional.",
@@ -38,29 +43,49 @@ disposal_methods = {
     "tea_bags": "Compost biodegradable tea bags as they are rich in organic matter. Check if your tea bags have plastic components and dispose of those in general waste."
 }
 
-# Load trained classification model
+# Define the model
+class WasteClassificationModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.mobnet = mobilenet_v3_small(weights=MobileNet_V3_Small_Weights.IMAGENET1K_V1)
+        self.feature_extraction = create_feature_extractor(self.mobnet, return_nodes={'features.12': 'mob_feature'})
+        self.conv1 = nn.Conv2d(576, 300, 3)
+        self.fc1 = nn.Linear(10800, len(disposal_methods))  # Output size based on number of disposal methods
+        self.dr = nn.Dropout()
+
+    def forward(self, x):
+        feature_layer = self.feature_extraction(x)['mob_feature']
+        x = torch.relu(self.conv1(feature_layer))
+        x = x.flatten(start_dim=1)
+        x = self.dr(x)
+        output = self.fc1(x)
+        return output
+
+
+# Load the trained model
 @st.cache_resource
 def load_classification_model():
-    model = WasteClassificationModelWithMask(num_classes=len(disposal_methods))  # Ensure the correct architecture
+    model = WasteClassificationModel()
     model.load_state_dict(torch.load('./train_account_best.pth', map_location=torch.device('cpu')))
     model.eval()
     return model
 
 
-# Preprocessing transformations
+# Preprocessing function for images
 def preprocess_image(image):
-    transform = Compose([
-        Resize((256, 256)),
-        ToTensor(),
-        Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+    transform = T.Compose([
+        T.Resize((256, 256)),
+        T.ToTensor(),
+        T.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
     ])
     return transform(image)
 
-# Main Streamlit App
+
+# Streamlit app
 def main():
     st.title("WasteSort AI: Waste Sorting and Disposal Assistant")
 
-    # Step 1: Upload image file
+    # Step 1: Upload image
     st.subheader("Step 1: Upload an Image")
     uploaded_image = st.file_uploader("Choose an image...", type=["jpg", "png", "jpeg"])
 
@@ -68,10 +93,10 @@ def main():
         image = Image.open(uploaded_image)
         st.image(image, caption="Uploaded Image", use_column_width=True)
 
-        # Step 2: Classify the Object
+        # Step 2: Classify the object
         st.subheader("Step 2: Classifying the Object")
 
-        # Preprocess original image
+        # Preprocess the image
         image_tensor = preprocess_image(image).unsqueeze(0)
 
         model = load_classification_model()
@@ -85,6 +110,7 @@ def main():
         recommendation = disposal_methods.get(predicted_class, "No recommendation available.")
         st.write(f"**Classified as**: {predicted_class}")
         st.write(f"**Disposal Recommendation**: {recommendation}")
+
 
 if __name__ == "__main__":
     main()
