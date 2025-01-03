@@ -40,10 +40,11 @@ disposal_methods = {
 # Load trained classification model
 @st.cache_resource
 def load_classification_model():
-    num_classes = len(disposal_methods)
-    model = torch.load('./train_account_best.pth', map_location=torch.device('cpu'))
+    model = WasteClassificationModelWithMask(num_classes=len(disposal_methods))  # Ensure the correct architecture
+    model.load_state_dict(torch.load('./train_account_best.pth', map_location=torch.device('cpu')))
     model.eval()
     return model
+
 
 # Preprocessing transformations
 def preprocess_image(image):
