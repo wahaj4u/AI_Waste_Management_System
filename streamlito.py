@@ -2,6 +2,7 @@ import streamlit as st
 import torch
 from PIL import Image
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
+from wastesortai_pcode import WasteClassificationModelWithMask
 
 # Define disposal recommendations
 disposal_methods = {
