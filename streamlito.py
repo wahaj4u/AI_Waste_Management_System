@@ -66,7 +66,7 @@ class WasteClassificationModel(nn.Module):
 @st.cache_resource
 def load_classification_model():
     model = WasteClassificationModel()
-    model.load_state_dict(torch.load('./train_account_best.pth', map_location=torch.device('cpu')))
+    model.load_state_dict(torch.load('train_account_best.pth', map_location=torch.device('cpu')))
     model.eval()
     return model
 
