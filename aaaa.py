@@ -1,5 +1,6 @@
 import streamlit as st
 import torch
+import os
 from PIL import Image
 from transformers import SamProcessor, SamModel
 import numpy as np
