@@ -108,17 +108,19 @@ def load_sam_model():
         'device': 'cpu',
     }
 
-    sam = sam_model_registry[config['MODEL_TYPE']](checkpoint=config['SAM_CHECKPOINT'])
-    sam.to(device=config['device'])
-    mask_generator = SamAutomaticMaskGenerator(sam)
+   print("Initializing SAM model...")
+   sam = sam_model_registry['vit_b'](checkpoint='sam_vit_b.pth')
+   sam.to(device)
+   print("SAM model loaded successfully!")
+   mask_generator = SamAutomaticMaskGenerator(sam)
 
-    return mask_generator
+   return mask_generator
 
 
 # Load classification model
 def load_classification_model():
     # Here we load the pre-trained model for waste classification (train_loss_best.pt)
-    checkpoint = torch.load('train_account_best.pth', map_location=torch.device('cpu'), weights_only=True)
+    checkpoint = torch.load('train_account_best.pth', map_location=torch.device('cpu'))
     
     model = WasteClassificationModelWithMask(num_classes=len(disposal_methods))  # Adjust with correct number of classes
     model.load_state_dict(checkpoint['model_state_dict'])
