@@ -2,7 +2,6 @@ import random
 import numpy as np
 import torch
 import os
-from transformers import AutoModel
 from huggingface_hub import hf_hub_download
 import torch.nn.functional as F
 from torchvision.models import mobilenet_v2
@@ -15,36 +14,7 @@ from torchvision.transforms import ToTensor
 
 # Define the disposal recommendations dictionary
 disposal_methods = { 
-    "aerosol_cans": "Make sure the can is empty before disposal. Check with your local recycling program for acceptance. If not recyclable, dispose of as hazardous waste.",
-    "aluminum_food_cans": "Rinse the can thoroughly to remove any food residue. Place it in your recycling bin. Crushing the can saves space but is optional.",
-    "aluminum_soda_cans": "Rinse to remove sticky residue. Place the can in your recycling bin. Avoid crushing if your recycling program requires intact cans.",
-    "cardboard_boxes": "Flatten the box to save space before recycling. Remove any non-cardboard elements like tape or labels. Place in the recycling bin for paper/cardboard.",
-    "cardboard_packaging": "Ensure all packaging is flattened for easy recycling. Remove non-cardboard parts such as plastic film or foam. Recycle with other cardboard materials.",
-    "clothing": "If still wearable, consider donating to local charities or thrift stores. For damaged clothing, recycle as fabric or take to textile recycling bins. Avoid placing in general waste.",
-    "coffee_grounds": "Coffee grounds are rich in nutrients and can be composted. Add them to your compost bin or garden soil. If composting is not an option, dispose of them in organic waste bins.",
-    "disposable_plastic_cutlery": "Most disposable cutlery is not recyclable. Place it in the general waste bin. Consider switching to reusable or compostable alternatives in the future.",
-    "eggshells": "Eggshells can be composted and are great for enriching soil. Add them to your compost bin after rinsing. Alternatively, place in organic waste bins.",
-    "food_waste": "Separate food waste from packaging before disposal. Compost if possible to reduce landfill impact. Use organic waste bins where available.",
-    "glass_beverage_bottles": "Rinse thoroughly to remove any liquid. Place in the glass recycling bin. Remove caps or lids if not made of glass.",
-    "glass_cosmetic_containers": "Clean the container to ensure it's residue-free. Recycle if your local program accepts glass containers. Broken glass should be wrapped in paper or cardboard and placed in general waste.",
-    "glass_food_jars": "Rinse the jar to remove food residue. Recycle in glass bins. Lids made of metal can often be recycled separately.",
-    "magazines": "Remove plastic covers or non-paper elements before recycling. Place in your paper recycling bin. Avoid recycling if excessively wet or damaged.",
-    "newspaper": "Keep newspapers dry and free of contaminants like food stains. Recycle them in designated paper bins. Bundle them for easier handling if required.",
-    "office_paper": "Shred confidential documents if necessary before recycling. Avoid including paper with heavy lamination or plastic content. Recycle in paper bins.",
-    "paper_cups": "Check for a recycling symbol to confirm if recyclable. Most paper cups with plastic lining are not recyclable and go into general waste. Consider switching to reusable cups.",
-    "plastic_cup_lids": "If marked recyclable, clean and place them in the appropriate bin. Otherwise, dispose of in general waste. Avoid using single-use lids when possible.",
-    "plastic_detergent_bottles": "Rinse out any remaining detergent to avoid contamination. Check the recycling symbol and place in plastics recycling. Keep the lid on if acceptable.",
-    "plastic_food_containers": "Ensure the container is clean and free of food residue. Recycle if marked as recyclable. Otherwise, dispose of in general waste.",
-    "plastic_shopping_bags": "Reuse them for storage or garbage liners. If recycling facilities for plastic bags are available, drop them off. Avoid throwing in general recycling bins.",
-    "plastic_soda_bottles": "Empty and rinse the bottle before recycling. Leave the cap on if your recycling program accepts it. Crush the bottle to save space if desired.",
-    "plastic_straws": "Plastic straws are not recyclable in most programs. Dispose of them in general waste. Consider using reusable or biodegradable straws.",
-    "plastic_trash_bags": "Trash bags themselves are not recyclable. Dispose of them in general waste along with their contents. Look for biodegradable options when purchasing new ones.",
-    "plastic_water_bottles": "Rinse the bottle to ensure cleanliness. Recycle the bottle along with the cap if accepted. Try to use reusable bottles to reduce plastic waste.",
-    "shoes": "Donate shoes that are still wearable to charities or thrift stores. For damaged or unusable shoes, check for textile recycling bins. Avoid discarding in general waste.",
-    "steel_food_cans": "Clean the can by removing all food residue. Place it in your recycling bin. Check for local recycling guidelines if needed.",
-    "styrofoam_cups": "Styrofoam is not recyclable in most areas. Dispose of it in general waste. Avoid using Styrofoam products whenever possible.",
-    "styrofoam_food_containers": "Clean the container before disposal if required. Place it in general waste as Styrofoam is typically non-recyclable. Consider switching to sustainable alternatives.",
-    "tea_bags": "Compost biodegradable tea bags as they are rich in organic matter. Check if your tea bags have plastic components and dispose of those in general waste."
+    # Your disposal methods dictionary...
 }
 
 # Define a basic dataset structure to handle image loading
@@ -80,10 +50,8 @@ class Display:
         plt.tight_layout()
         st.pyplot(plt)
 
-
 # Preprocess image for SAM input (resize long side to 1024 and convert to array)
 def preprocess_for_sam(image):
-    # Resize the image such that the long side is 1024 while preserving the aspect ratio
     long_side = 1024
     aspect_ratio = image.width / image.height
 
@@ -102,15 +70,18 @@ def preprocess_for_sam(image):
 
     return image_np
 
-
 # Load SAM model
 def load_sam_model():
-    # Specify the model repo path on Hugging Face
-    model_repo = "Wahaj4u/sam_vit_b"
-    # Download the checkpoint file from Hugging Face using LFS
-    model_path = hf_hub_download(repo_id=model_repo, filename="sam_vit_b.pth")
+    # Specify the model repo path on GitHub
+    model_url = "https://github.com/wahaj4u/AI_Waste_Management_System/releases/download/v1/sam_vit_b.pth"
+    # Download the model from GitHub release
+    model_path = hf_hub_download(repo_id="wahaj4u/AI_Waste_Management_System", filename="sam_vit_b.pth", repo_type="release")
+    
+    checkpoint = torch.load(model_path, map_location="cpu")
+
     # Load the SAM model with the checkpoint path
-    sam = sam_model_registry["vit_b"](checkpoint=model_path)
+    sam = sam_model_registry["vit_b"](checkpoint=checkpoint)
+    
     # Move model to desired device (CPU or GPU)
     sam.to(device='cpu')  # Or 'cuda' if you are using a GPU
 
@@ -118,15 +89,13 @@ def load_sam_model():
     mask_generator = SamAutomaticMaskGenerator(sam)
     return mask_generator
 
-
 # Load classification model
 def load_classification_model():
-    # Here we load the pre-trained model for waste classification (train_account_best.pth)
+    # Load the pre-trained model for waste classification (train_account_best.pth)
     checkpoint = torch.load('train_account_best.pth', weights_only=True)
     model = WasteClassificationModelWithMask(num_classes=len(disposal_methods))  # Adjust with correct number of classes
     model.load_state_dict(checkpoint['model_state_dict'])
     return model
-
 
 class WasteClassificationModelWithMask(torch.nn.Module):
     def __init__(self, num_classes):
