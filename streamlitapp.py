@@ -42,7 +42,6 @@ disposal_methods = {
 }
 
 # Initialize SAM model
-# Initialize SAM model
 def load_sam_model():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model_path = 'sam_vit_b.pth'
