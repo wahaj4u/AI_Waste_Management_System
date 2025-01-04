@@ -1,13 +1,17 @@
-import streamlit as st
+import random
+import numpy as np
 import torch
+import torch.nn.functional as F
+from torchvision.models import mobilenet_v2
+from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
 from PIL import Image
 import cv2
-import numpy as np
-from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
-from torchvision.transforms import Compose, Resize, ToTensor, Normalize
+import streamlit as st
+import matplotlib.pyplot as plt
+from torchvision.transforms import ToTensor
 
-# Define disposal recommendations
-disposal_methods = {
+# Define the disposal recommendations dictionary
+disposal_methods = { 
     "aerosol_cans": "Make sure the can is empty before disposal. Check with your local recycling program for acceptance. If not recyclable, dispose of as hazardous waste.",
     "aluminum_food_cans": "Rinse the can thoroughly to remove any food residue. Place it in your recycling bin. Crushing the can saves space but is optional.",
     "aluminum_soda_cans": "Rinse to remove sticky residue. Place the can in your recycling bin. Avoid crushing if your recycling program requires intact cans.",
@@ -40,51 +44,148 @@ disposal_methods = {
     "tea_bags": "Compost biodegradable tea bags as they are rich in organic matter. Check if your tea bags have plastic components and dispose of those in general waste."
 }
 
-# Initialize SAM model
-@st.cache_resource
-def load_sam_model():
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    sam = sam_model_registry['vit_b'](checkpoint='/path/to/sam_vit_b.pth')
-    sam.to(device)
-    return SamAutomaticMaskGenerator(sam)
+# Define a basic dataset structure to handle image loading
+class Display:
+    @staticmethod
+    def show_all(image, anns, dimensions=[8, 16]):
+        plt.figure(figsize=(dimensions[0], dimensions[1]))
 
-# Load trained classification model
-@st.cache_resource
+        # Display the base image
+        plt.subplot(1, 2, 1)
+        plt.imshow(image)
+        plt.title('Base Image')
+        plt.axis('off')
+
+        # Display the image with the mask
+        plt.subplot(1, 2, 2)
+        plt.imshow(image)
+        plt.title('Image With Mask')
+        if len(anns) == 0:
+            return
+        sorted_anns = sorted(anns, key=(lambda x: x['area']), reverse=True)
+        ax = plt.gca()
+        ax.set_autoscale_on(False)
+
+        img = np.ones((sorted_anns[0]['segmentation'].shape[0], sorted_anns[0]['segmentation'].shape[1], 4))
+        img[:,:,3] = 0
+        for ann in sorted_anns:
+            m = ann['segmentation']
+            color_mask = np.concatenate([np.random.random(3), [0.35]])
+            img[m] = color_mask
+        ax.imshow(img)
+
+        plt.tight_layout()
+        st.pyplot(plt)
+
+
+# Preprocess image for SAM input (resize long side to 1024 and convert to array)
+def preprocess_for_sam(image):
+    # Resize the image such that the long side is 1024 while preserving the aspect ratio
+    long_side = 1024
+    aspect_ratio = image.width / image.height
+
+    if image.width > image.height:
+        new_width = long_side
+        new_height = int(long_side / aspect_ratio)
+    else:
+        new_height = long_side
+        new_width = int(long_side * aspect_ratio)
+
+    # Resize the image with the calculated dimensions
+    image_resized = image.resize((new_width, new_height))
+
+    # Convert to numpy array
+    image_np = np.array(image_resized)
+
+    return image_np
+
+
+# Load SAM model
+def load_sam_model():
+    config = {
+        'MODEL_TYPE': 'vit_b',
+        'SAM_CHECKPOINT': 'sam_vit_b.pth',  # Update to your checkpoint path
+        'device': 'cpu',
+    }
+
+    sam = sam_model_registry[config['MODEL_TYPE']](checkpoint=config['SAM_CHECKPOINT'])
+    sam.to(device=config['device'])
+    mask_generator = SamAutomaticMaskGenerator(sam)
+
+    return mask_generator
+
+
+# Load classification model
 def load_classification_model():
-    num_classes = len(disposal_methods)
-    model = torch.load('./train_account_best.pth', map_location=torch.device('cpu'))
-    model.eval()
+    # Here we load the pre-trained model for waste classification (train_account_best.pth)
+    checkpoint = torch.load('train_account_best.pth')
+    model = WasteClassificationModelWithMask(num_classes=len(disposal_methods))  # Adjust with correct number of classes
+    model.load_state_dict(checkpoint['model_state_dict'])
     return model
 
-# Preprocessing transformations
-def preprocess_image(image):
-    transform = Compose([
-        Resize((256, 256)),
-        ToTensor(),
-        Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
-    ])
-    return transform(image)
 
-# Main Streamlit App
+class WasteClassificationModelWithMask(torch.nn.Module):
+    def __init__(self, num_classes):
+        super(WasteClassificationModelWithMask, self).__init__()
+        self.backbone = mobilenet_v2(pretrained=True).features
+
+        # Update the first convolution layer to accept 4 channels instead of 3
+        self.backbone[0][0] = torch.nn.Conv2d(4, 32, kernel_size=3, stride=2, padding=1, bias=False)
+
+        self.classifier = torch.nn.Sequential(
+            torch.nn.Dropout(0.2),
+            torch.nn.Linear(1280, 256),  # Adjust based on MobileNetV2 output channel (1280)
+            torch.nn.ReLU(),
+            torch.nn.Dropout(0.2),
+            torch.nn.Linear(256, num_classes)  # Number of classes
+        )
+
+    def forward(self, image_tensor, mask_tensor):
+        # Ensure the mask_tensor has the same number of channels as image_tensor
+        mask_tensor = torch.nn.Conv2d(mask_tensor.size(1), 1, kernel_size=1)(mask_tensor)  # Reduce mask to 1 channel
+
+        # Resize mask_tensor to match the height and width of image_tensor
+        if mask_tensor.shape[2:] != image_tensor.shape[2:]:
+            mask_tensor = F.interpolate(mask_tensor, size=image_tensor.shape[2:], mode='bilinear', align_corners=False)
+
+        # Concatenate the image_tensor and mask_tensor along the channel dimension (dim=1)
+        concatenated_tensor = torch.cat([image_tensor, mask_tensor], dim=1)
+
+        # Pass the concatenated tensor through the backbone
+        x = self.backbone(concatenated_tensor)
+
+        # Apply global average pooling (mean over height and width)
+        x = x.mean([2, 3])  # Global average pooling
+
+        # Pass the result through the classifier
+        x = self.classifier(x)
+
+        return x
+
+# Streamlit App
 def main():
     st.title("WasteSort AI: Waste Sorting and Disposal Assistant")
 
-    # Step 1: Capture image
+    # Step 1: Capture Image in Real-Time
     st.subheader("Step 1: Capture an Image")
-    uploaded_image = st.camera_input("Take a picture")
+    captured_image = st.camera_input("Capture an image")
 
-    if uploaded_image is not None:
-        image = Image.open(uploaded_image)
-        st.image(image, caption="Uploaded Image", use_column_width=True)
+    if captured_image is not None:
+        image = Image.open(captured_image)
+        st.image(image, caption="Captured Image", use_container_width=True)
 
         # Step 2: Segment the image
         st.subheader("Step 2: Segmenting the Image")
         mask_generator = load_sam_model()
 
-        image_np = np.array(image)
+        # Preprocess the image to match SAM input size (long side 1024)
+        image_np = preprocess_for_sam(image)
+
+        # Generate segmentation mask
         masks = mask_generator.generate(image_np)
 
         if masks:
+            Display.show_all(image_np, masks)
             mask = masks[0]['segmentation']  # Use the first mask
             mask_image = Image.fromarray((mask * 255).astype(np.uint8))
             st.image(mask_image, caption="Segmented Mask", use_column_width=True)
@@ -95,15 +196,16 @@ def main():
             # Convert the mask to 1 channel
             mask_tensor = ToTensor()(mask_image).unsqueeze(0)
 
-            # Preprocess original image
-            image_tensor = preprocess_image(image).unsqueeze(0)
+            # Preprocess the original image
+            image_tensor = preprocess_for_sam(image)
+            image_tensor = torch.tensor(image_tensor).permute(2, 0, 1).unsqueeze(0).float()  # BCHW format
 
-            # Concatenate the mask with the image
-            input_tensor = torch.cat([image_tensor, mask_tensor], dim=1)
-
+            # Load classification model once
             model = load_classification_model()
+
             with torch.no_grad():
-                outputs = model(input_tensor)
+                # Pass the image and mask tensors separately
+                outputs = model(image_tensor, mask_tensor)  # pass both image_tensor and mask_tensor separately
                 predicted_class_idx = torch.argmax(outputs, dim=1).item()
                 predicted_class = list(disposal_methods.keys())[predicted_class_idx]
 
