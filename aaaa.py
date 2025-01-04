@@ -171,12 +171,13 @@ def main():
     st.title("WasteSort AI: Waste Sorting and Disposal Assistant")
 
     # Step 1: Capture Image in Real-Time
-    st.subheader("Step 1: Capture an Image")
-    captured_image = st.camera_input("Capture an image")
+    st.subheader("Step 1: Upload an Image")
+    uploaded_image = st.file_uploader("Choose an image...", type=["jpg", "png", "jpeg"])
 
-    if captured_image is not None:
-        image = Image.open(captured_image)
-        st.image(image, caption="Captured Image", use_container_width=True)
+    if uploaded_image is not None:
+        # Open the uploaded image
+        image = Image.open(uploaded_image)
+        st.image(image, caption="Uploaded Image", use_container_width=True)
 
         # Step 2: Segment the image
         st.subheader("Step 2: Segmenting the Image")
