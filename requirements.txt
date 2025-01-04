@@ -7,6 +7,7 @@ torchvision
 matplotlib
 scikit-learn
 segment-anything
-opencv-python-headless==4.6.0.66
+opencv-python-headless==4.5.1.48
+
 
 
