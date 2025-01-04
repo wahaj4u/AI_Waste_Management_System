@@ -2,6 +2,7 @@ import streamlit as st
 import torch
 from PIL import Image
 import cv2
+import os
 import numpy as np
 from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
@@ -44,9 +45,12 @@ disposal_methods = {
 @st.cache_resource
 def load_sam_model():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    sam = sam_model_registry['vit_b'](checkpoint='sam_vit_b.pth')
-    sam.to(device)
-    return SamAutomaticMaskGenerator(sam)
+    if os.path.exists('sam_vit_b.pth'):
+        sam = sam_model_registry['vit_b'](checkpoint='sam_vit_b.pth')
+    else:
+        st.error("Model file not found!")
+        sam.to(device)
+        return SamAutomaticMaskGenerator(sam)
 
 # Load trained classification model
 @st.cache_resource
