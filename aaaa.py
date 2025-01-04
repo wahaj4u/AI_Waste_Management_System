@@ -122,7 +122,7 @@ def load_sam_model():
 # Load classification model
 def load_classification_model():
     # Here we load the pre-trained model for waste classification (train_account_best.pth)
-    checkpoint = torch.load('train_account_best.pth')
+    checkpoint = torch.load('train_account_best.pth', weights_only=True)
     model = WasteClassificationModelWithMask(num_classes=len(disposal_methods))  # Adjust with correct number of classes
     model.load_state_dict(checkpoint['model_state_dict'])
     return model
