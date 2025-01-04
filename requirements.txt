@@ -7,6 +7,6 @@ torchvision
 matplotlib
 scikit-learn
 segment-anything
-opencv-python-headless
-libgl1-mesa-glx
+opencv-python-headless==4.6.0.66
+
 
