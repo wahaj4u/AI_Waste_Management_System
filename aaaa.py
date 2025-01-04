@@ -1,13 +1,14 @@
-import streamlit as st
-import torch
-import os
-from PIL import Image
-from transformers import SamProcessor, SamModel
+import random
 import numpy as np
+import torch
+import torch.nn.functional as F
+from torchvision.models import mobilenet_v2
+from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
+from PIL import Image
+import cv2
+import streamlit as st
 import matplotlib.pyplot as plt
 from torchvision.transforms import ToTensor
-from torchvision.models import mobilenet_v2
-import torch.nn.functional as F
 
 # Define the disposal recommendations dictionary
 disposal_methods = { 
@@ -43,45 +44,39 @@ disposal_methods = {
     "tea_bags": "Compost biodegradable tea bags as they are rich in organic matter. Check if your tea bags have plastic components and dispose of those in general waste."
 }
 
-# Load the SAM model directly from Hugging Face
-@st.cache_resource
-def load_model():
-    model_name = "Wahaj4u/sam_vit_b"
-    processor = SamProcessor.from_pretrained(model_name, revision="main")
-    model = SamModel.from_pretrained(model_name, revision="main")
-    return processor, model
+# Define a basic dataset structure to handle image loading
+class Display:
+    @staticmethod
+    def show_all(image, anns, dimensions=[8, 16]):
+        plt.figure(figsize=(dimensions[0], dimensions[1]))
 
-# Function to process the uploaded image
-def segment_image(image):
-    processor, model = load_model()
+        # Display the base image
+        plt.subplot(1, 2, 1)
+        plt.imshow(image)
+        plt.title('Base Image')
+        plt.axis('off')
 
-    # Convert the uploaded image to the format the model expects
-    inputs = processor(images=image, return_tensors="pt")
+        # Display the image with the mask
+        plt.subplot(1, 2, 2)
+        plt.imshow(image)
+        plt.title('Image With Mask')
+        if len(anns) == 0:
+            return
+        sorted_anns = sorted(anns, key=(lambda x: x['area']), reverse=True)
+        ax = plt.gca()
+        ax.set_autoscale_on(False)
 
-    # Perform segmentation
-    with torch.no_grad():
-        outputs = model(**inputs)
+        img = np.ones((sorted_anns[0]['segmentation'].shape[0], sorted_anns[0]['segmentation'].shape[1], 4))
+        img[:,:,3] = 0
+        for ann in sorted_anns:
+            m = ann['segmentation']
+            color_mask = np.concatenate([np.random.random(3), [0.35]])
+            img[m] = color_mask
+        ax.imshow(img)
 
-    segmentation_mask = outputs.logits.argmax(dim=1)  
-    return segmentation_mask
+        plt.tight_layout()
+        st.pyplot(plt)
 
-# Display Segmentation Results
-def display_segmentation_results(image, segmentation_mask):
-    plt.figure(figsize=(8, 8))
-    
-    # Display the base image
-    plt.subplot(1, 2, 1)
-    plt.imshow(image)
-    plt.title('Base Image')
-    plt.axis('off')
-    
-    # Display the segmentation mask
-    plt.subplot(1, 2, 2)
-    plt.imshow(segmentation_mask[0], cmap='gray')
-    plt.title('Segmentation Mask')
-    plt.axis('off')
-    
-    st.pyplot(plt)
 
 # Preprocess image for SAM input (resize long side to 1024 and convert to array)
 def preprocess_for_sam(image):
@@ -104,12 +99,30 @@ def preprocess_for_sam(image):
 
     return image_np
 
-# Define the classification model for waste classification (simplified)
+
+# Load SAM model
+def load_sam_model():
+    config = {
+        'MODEL_TYPE': 'vit_b',
+        'SAM_CHECKPOINT': 'sam_vit_b.pth',  # Update to your checkpoint path
+        'device': 'cpu',
+    }
+
+    sam = sam_model_registry[config['MODEL_TYPE']](checkpoint=config['SAM_CHECKPOINT'])
+    sam.to(device=config['device'])
+    mask_generator = SamAutomaticMaskGenerator(sam)
+
+    return mask_generator
+
+
+# Load classification model
 def load_classification_model():
+    # Here we load the pre-trained model for waste classification (train_account_best.pth)
     checkpoint = torch.load('train_account_best.pth')
     model = WasteClassificationModelWithMask(num_classes=len(disposal_methods))  # Adjust with correct number of classes
     model.load_state_dict(checkpoint['model_state_dict'])
     return model
+
 
 class WasteClassificationModelWithMask(torch.nn.Module):
     def __init__(self, num_classes):
@@ -155,57 +168,54 @@ def main():
 
     # Step 1: Capture Image in Real-Time
     st.subheader("Step 1: Capture an Image")
-    uploaded_image = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
+    captured_image = st.camera_input("Capture an image")
 
-    if uploaded_image is not None:
-        image = Image.open(uploaded_image)
-        st.image(image, caption="Uploaded Image", use_column_width=True)
+    if captured_image is not None:
+        image = Image.open(captured_image)
+        st.image(image, caption="Captured Image", use_container_width=True)
 
-        # Step 2: Segmenting the Image
+        # Step 2: Segment the image
         st.subheader("Step 2: Segmenting the Image")
-        
-        # Use the load_model function to load processor and model
-        processor, model = load_model()
+        mask_generator = load_sam_model()
 
         # Preprocess the image to match SAM input size (long side 1024)
         image_np = preprocess_for_sam(image)
 
-        # Generate segmentation mask using the processor and model
-        inputs = processor(images=image, return_tensors="pt")
-        with torch.no_grad():
-            outputs = model(**inputs)
+        # Generate segmentation mask
+        masks = mask_generator.generate(image_np)
 
-        segmentation_mask = outputs.logits.argmax(dim=1)  # Get the segmentation mask
-        
-        # Display the segmentation results
-        display_segmentation_results(image, segmentation_mask)
+        if masks:
+            Display.show_all(image_np, masks)
+            mask = masks[0]['segmentation']  # Use the first mask
+            mask_image = Image.fromarray((mask * 255).astype(np.uint8))
+            st.image(mask_image, caption="Segmented Mask", use_column_width=True)
 
-        # Step 3: Classify the Object
-        st.subheader("Step 3: Classifying the Object")
+            # Step 3: Classify the segmented object
+            st.subheader("Step 3: Classifying the Object")
 
-        # Convert the mask to 1 channel
-        mask_tensor = ToTensor()(segmentation_mask[0].cpu().numpy()).unsqueeze(0)
+            # Convert the mask to 1 channel
+            mask_tensor = ToTensor()(mask_image).unsqueeze(0)
 
-        # Preprocess the original image
-        image_tensor = np.array(image)
-        image_tensor = torch.tensor(image_tensor).permute(2, 0, 1).unsqueeze(0).float()  # BCHW format
+            # Preprocess the original image
+            image_tensor = preprocess_for_sam(image)
+            image_tensor = torch.tensor(image_tensor).permute(2, 0, 1).unsqueeze(0).float()  # BCHW format
 
-        # Load classification model once
-        model = load_classification_model()
+            # Load classification model once
+            model = load_classification_model()
 
-        with torch.no_grad():
-            # Pass the image and mask tensors separately
-            outputs = model(image_tensor, mask_tensor)  # pass both image_tensor and mask_tensor separately
-            predicted_class_idx = torch.argmax(outputs, dim=1).item()
-            predicted_class = list(disposal_methods.keys())[predicted_class_idx]
+            with torch.no_grad():
+                # Pass the image and mask tensors separately
+                outputs = model(image_tensor, mask_tensor)  # pass both image_tensor and mask_tensor separately
+                predicted_class_idx = torch.argmax(outputs, dim=1).item()
+                predicted_class = list(disposal_methods.keys())[predicted_class_idx]
 
-        # Step 4: Display disposal recommendation
-        st.subheader("Step 4: Disposal Recommendation")
-        recommendation = disposal_methods.get(predicted_class, "No recommendation available.")
-        st.write(f"**Classified as**: {predicted_class}")
-        st.write(f"**Disposal Recommendation**: {recommendation}")
-    else:
-        st.error("No segmentation mask could be generated.")
+            # Step 4: Display disposal recommendation
+            st.subheader("Step 4: Disposal Recommendation")
+            recommendation = disposal_methods.get(predicted_class, "No recommendation available.")
+            st.write(f"**Classified as**: {predicted_class}")
+            st.write(f"**Disposal Recommendation**: {recommendation}")
+        else:
+            st.error("No segmentation mask could be generated.")
 
 if __name__ == "__main__":
     main()
