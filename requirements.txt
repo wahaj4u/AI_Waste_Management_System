@@ -6,5 +6,7 @@ streamlit
 torchvision
 matplotlib
 scikit-learn
-opencv-python-headless
 segment-anything
+opencv-python-headless
+libgl1-mesa-glx
+
