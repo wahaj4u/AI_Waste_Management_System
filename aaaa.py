@@ -86,7 +86,7 @@ def download_model_from_github(model_url, model_path):
 
 def load_sam_model():
     model_url = "https://github.com/wahaj4u/AI_Waste_Management_System/releases/download/v1/sam_vit_b.pth"
-    model_path = "sam_vit_b.pth"  # Set model_path to the desired path
+    model_path = "sam_vit_b.pth"
 
     # Check if the model exists, otherwise download it
     if not os.path.exists(model_path):
@@ -95,8 +95,18 @@ def load_sam_model():
     else:
         print(f"Model found at {model_path}. Using the existing model.")
 
+    # Debug: Check if the model file is downloaded successfully
+    if not os.path.exists(model_path):
+        print(f"Error: Model file {model_path} not found!")
+        raise FileNotFoundError(f"Model file not found at {model_path}")
+
     # Load the model checkpoint from the local path
-    checkpoint = torch.load(model_path, map_location="cpu")  # Load checkpoint
+    try:
+        checkpoint = torch.load(model_path, map_location="cpu")  # Load checkpoint
+        print("Checkpoint loaded successfully.")
+    except Exception as e:
+        print(f"Error loading checkpoint: {e}")
+        raise
 
     # Initialize the SAM model with the loaded checkpoint
     sam_model = sam_model_registry["vit_b"](checkpoint)  # Initialize the model with the checkpoint path
@@ -105,6 +115,7 @@ def load_sam_model():
     # Create the mask generator
     mask_generator = SamAutomaticMaskGenerator(sam_model)
     return mask_generator
+
 
 # Load classification model
 def load_classification_model():
