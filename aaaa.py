@@ -1,4 +1,5 @@
 import random
+import requests
 import numpy as np
 import torch
 import os
@@ -87,7 +88,12 @@ def download_model_from_github(model_url, save_path):
 # Function to load the SAM model
 def load_sam_model():
     model_url = "https://github.com/wahaj4u/AI_Waste_Management_System/releases/download/v1/sam_vit_b.pth"
-    model_path = "sam_vit_b.pth"  # Save the model locally
+    response = requests.get(model_url)
+    if response.status_code == 200:
+        print("Model URL is accessible")
+    else:
+        print(f"Failed to access model URL. Status code: {response.status_code}")
+        model_path = "sam_vit_b.pth"  # Save the model locally
 
     # Download model if not already downloaded
     if not os.path.exists(model_path):
