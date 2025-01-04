@@ -4,6 +4,7 @@ pillow
 numpy
 streamlit
 torchvision
+gdown
 matplotlib
 scikit-learn
 opencv-python-headless
