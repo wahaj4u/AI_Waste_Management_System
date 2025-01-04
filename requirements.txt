@@ -1,11 +1,10 @@
 flask
 torch
-opencv-python
 pillow
 numpy
-streamlit
 torchvision
-matplotlib
-scikit-learn
 opencv-python-headless
 segment-anything
+requests
+matplotlib
+transformers
