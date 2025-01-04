@@ -70,24 +70,40 @@ def preprocess_for_sam(image):
 
     return image_np
 
-# Load SAM model
+def download_model_from_github(model_url, save_path):
+    # Send a GET request to the URL and download the model
+    response = requests.get(model_url, stream=True)
+    if response.status_code == 200:
+        # Open the file and save it to the specified path
+        with open(save_path, 'wb') as file:
+            for chunk in response.iter_content(chunk_size=1024):
+                if chunk:
+                    file.write(chunk)
+        print(f"Model downloaded successfully and saved to {save_path}")
+    else:
+        print(f"Failed to download model. Status code: {response.status_code}")
+        raise Exception("Model download failed!")
+
+# Function to load the SAM model
 def load_sam_model():
-    # Specify the model repo path on GitHub
     model_url = "https://github.com/wahaj4u/AI_Waste_Management_System/releases/download/v1/sam_vit_b.pth"
-    # Download the model from GitHub release
-    model_path = hf_hub_download(repo_id="wahaj4u/AI_Waste_Management_System", filename="sam_vit_b.pth", repo_type="release")
-    
+    model_path = "sam_vit_b.pth"  # Save the model locally
+
+    # Download model if not already downloaded
+    if not os.path.exists(model_path):
+        download_model_from_github(model_url, model_path)
+
+    # Load the model checkpoint
     checkpoint = torch.load(model_path, map_location="cpu")
 
-    # Load the SAM model with the checkpoint path
-    sam = sam_model_registry["vit_b"](checkpoint=checkpoint)
-    
-    # Move model to desired device (CPU or GPU)
-    sam.to(device='cpu')  # Or 'cuda' if you are using a GPU
+    # Initialize the SAM model
+    sam = sam_model_registry["vit_b"](checkpoint=model_path)
+    sam.to(device='cpu')  # Move model to CPU (or GPU if available)
 
-    # Create the mask generator
+    # Return the mask generator
     mask_generator = SamAutomaticMaskGenerator(sam)
     return mask_generator
+
 
 # Load classification model
 def load_classification_model():
