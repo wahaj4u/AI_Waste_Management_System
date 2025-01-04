@@ -1,13 +1,14 @@
 flask
-torch
-pillow
 numpy
-streamlit
-torchvision
 matplotlib
 scikit-learn
-segment-anything
-opencv-python-headless==4.5.1.48
+streamlit==1.17.0  # Adjust the version if necessary
+torch==1.13.1
+torchvision==0.14.1
+opencv-python-headless==4.5.1.48  # OpenCV headless for server environments
+Pillow==9.0.1
+segment-anything==0.1  # Make sure the package version matches
+
 
 
 
