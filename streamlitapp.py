@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torchvision.models import mobilenet_v2
-from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
+from segment_anything import sam_model_registry, SamAutomaticMaskGenerator
 from PIL import Image
 import cv2
 import streamlit as st
@@ -100,27 +100,33 @@ def preprocess_for_sam(image):
     return image_np
 
 
-# Load SAM model
 def load_sam_model():
     config = {
-        'MODEL_TYPE': 'vit_b',
-        'SAM_CHECKPOINT': 'sam_vit_b.pth',  # Update to your checkpoint path
-        'device': 'cpu',
+        'MODEL_TYPE': 'vit_b',  # Model type (vit_b is a variant of Vision Transformer)
+        'SAM_CHECKPOINT': 'sam_vit_b.pth',  # Path to SAM checkpoint file
+        'device': 'cpu',  # Use 'cuda' if GPU is available
     }
 
     print("Initializing SAM model...")
 
-    # Use the config to load the model and checkpoint
-    sam = sam_model_registry[config['MODEL_TYPE']](checkpoint=config['SAM_CHECKPOINT'])
-    sam.to(config['device'])
+    # Ensure the model type is registered correctly
+    try:
+        # Register and load SAM model with the correct checkpoint
+        sam = sam_model_registry[config['MODEL_TYPE']](checkpoint=config['SAM_CHECKPOINT'])
+        sam.to(config['device'])  # Move model to the correct device (CPU or GPU)
+        print("SAM model loaded successfully!")
 
-    print("SAM model loaded successfully!")
+        # Initialize the mask generator
+        mask_generator = SamAutomaticMaskGenerator(sam)
 
-    # Initialize the mask generator
-    mask_generator = SamAutomaticMaskGenerator(sam)
+        return mask_generator
 
-    return mask_generator
-
+    except KeyError as e:
+        print(f"Error: Model type {config['MODEL_TYPE']} not found in sam_model_registry.")
+        raise e  # Re-raise the exception to stop further execution
+    except Exception as e:
+        print(f"An error occurred while loading the SAM model: {e}")
+        raise e  # Re-raise the exception to stop further execution
 
 
 # Load classification model
