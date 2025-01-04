@@ -88,17 +88,18 @@ def load_sam_model():
     model_url = "https://github.com/wahaj4u/AI_Waste_Management_System/releases/download/v1/sam_vit_b.pth"
     model_path = "sam_vit_b.pth"  # Set model_path to the desired path
 
+    # Check if the model exists, otherwise download it
     if not os.path.exists(model_path):
         print(f"Model not found. Downloading from {model_url}...")
         download_model_from_github(model_url, model_path)
     else:
         print(f"Model found at {model_path}. Using the existing model.")
 
-    # Load the model checkpoint
-    checkpoint = torch.load(model_path, map_location="cpu")  # Load the checkpoint from the path
+    # Load the model checkpoint from the local path
+    checkpoint = torch.load(model_path, map_location="cpu")  # Load checkpoint
 
-    # Load the SAM model using the checkpoint
-    sam_model = sam_model_registry["vit_b"](checkpoint)  # Make sure this matches the expected SAM model initialization
+    # Initialize the SAM model with the loaded checkpoint
+    sam_model = sam_model_registry["vit_b"](checkpoint)  # Initialize the model with the checkpoint path
     sam_model.to(device='cpu')  # Or 'cuda' if you're using a GPU
 
     # Create the mask generator
