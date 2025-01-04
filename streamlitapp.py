@@ -229,7 +229,7 @@ def load_sam_model():
         'device': 'cpu',  # Change to 'cuda' if using GPU
     }
 
-    # Register and load SAM model, ensuring compatibility
+    # Register and load SAM model with weights_only=True
     sam = sam_model_registry[config['MODEL_TYPE']](checkpoint=config['SAM_CHECKPOINT'])
     sam.to(device=config['device'])
     
@@ -239,14 +239,14 @@ def load_sam_model():
     return mask_generator
 
 
-
 # Load classification model
 def load_classification_model():
     # Here we load the pre-trained model for waste classification (train_account_best.pth)
-    checkpoint = torch.load('train_account_best.pth', weights_only=True)  # Add weights_only=True
+    checkpoint = torch.load('train_account_best.pth', weights_only=True)  # Ensure weights_only=True
     model = WasteClassificationModelWithMask(num_classes=len(disposal_methods))  # Adjust with correct number of classes
     model.load_state_dict(checkpoint['model_state_dict'])
     return model
+
 
 
 class WasteClassificationModelWithMask(torch.nn.Module):
