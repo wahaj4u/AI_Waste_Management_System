@@ -162,46 +162,49 @@ def main():
 
         # Step 2: Segmenting the Image
         st.subheader("Step 2: Segmenting the Image")
-        mask_generator = load_sam_model()
+        
+        # Use the load_model function to load processor and model
+        processor, model = load_model()
 
         # Preprocess the image to match SAM input size (long side 1024)
         image_np = preprocess_for_sam(image)
 
-        # Generate segmentation mask
-        masks = mask_generator.generate(image_np)
+        # Generate segmentation mask using the processor and model
+        inputs = processor(images=image, return_tensors="pt")
+        with torch.no_grad():
+            outputs = model(**inputs)
 
-        if masks:
-            Display.show_all(image_np, masks)
-            mask = masks[0]['segmentation']  # Use the first mask
-            mask_image = Image.fromarray((mask * 255).astype(np.uint8))
-            st.image(mask_image, caption="Segmented Mask", use_column_width=True)
+        segmentation_mask = outputs.logits.argmax(dim=1)  # Get the segmentation mask
+        
+        # Display the segmentation results
+        display_segmentation_results(image, segmentation_mask)
 
-            # Step 3: Classify the Object
-            st.subheader("Step 3: Classifying the Object")
+        # Step 3: Classify the Object
+        st.subheader("Step 3: Classifying the Object")
 
-            # Convert the mask to 1 channel
-            mask_tensor = ToTensor()(mask_image).unsqueeze(0)
+        # Convert the mask to 1 channel
+        mask_tensor = ToTensor()(segmentation_mask[0].cpu().numpy()).unsqueeze(0)
 
-            # Preprocess the original image
-            image_tensor = preprocess_for_sam(image)
-            image_tensor = torch.tensor(image_tensor).permute(2, 0, 1).unsqueeze(0).float()  # BCHW format
+        # Preprocess the original image
+        image_tensor = np.array(image)
+        image_tensor = torch.tensor(image_tensor).permute(2, 0, 1).unsqueeze(0).float()  # BCHW format
 
-            # Load classification model once
-            model = load_classification_model()
+        # Load classification model once
+        model = load_classification_model()
 
-            with torch.no_grad():
-                # Pass the image and mask tensors separately
-                outputs = model(image_tensor, mask_tensor)  # pass both image_tensor and mask_tensor separately
-                predicted_class_idx = torch.argmax(outputs, dim=1).item()
-                predicted_class = list(disposal_methods.keys())[predicted_class_idx]
+        with torch.no_grad():
+            # Pass the image and mask tensors separately
+            outputs = model(image_tensor, mask_tensor)  # pass both image_tensor and mask_tensor separately
+            predicted_class_idx = torch.argmax(outputs, dim=1).item()
+            predicted_class = list(disposal_methods.keys())[predicted_class_idx]
 
-            # Step 4: Display disposal recommendation
-            st.subheader("Step 4: Disposal Recommendation")
-            recommendation = disposal_methods.get(predicted_class, "No recommendation available.")
-            st.write(f"**Classified as**: {predicted_class}")
-            st.write(f"**Disposal Recommendation**: {recommendation}")
-        else:
-            st.error("No segmentation mask could be generated.")
+        # Step 4: Display disposal recommendation
+        st.subheader("Step 4: Disposal Recommendation")
+        recommendation = disposal_methods.get(predicted_class, "No recommendation available.")
+        st.write(f"**Classified as**: {predicted_class}")
+        st.write(f"**Disposal Recommendation**: {recommendation}")
+    else:
+        st.error("No segmentation mask could be generated.")
 
 if __name__ == "__main__":
     main()
