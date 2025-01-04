@@ -44,7 +44,7 @@ disposal_methods = {
 @st.cache_resource
 def load_sam_model():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    sam = sam_model_registry['vit_b'](checkpoint='/path/to/sam_vit_b.pth')
+    sam = sam_model_registry['vit_b'](checkpoint='sam_vit_b.pth')
     sam.to(device)
     return SamAutomaticMaskGenerator(sam)
 
@@ -52,7 +52,7 @@ def load_sam_model():
 @st.cache_resource
 def load_classification_model():
     num_classes = len(disposal_methods)
-    model = torch.load('./train_account_best.pth', map_location=torch.device('cpu'))
+    model = torch.load('train_account_best.pth', map_location=torch.device('cpu'))
     model.eval()
     return model
 
