@@ -148,48 +148,60 @@ class WasteClassificationModelWithMask(torch.nn.Module):
 
         return x
 
-# Streamlit UI
+# Streamlit App
 def main():
     st.title("WasteSort AI: Waste Sorting and Disposal Assistant")
 
     # Step 1: Capture Image in Real-Time
-    # st.subheader("Step 1: Capture an Image")
-    # captured_image = st.camera_input("Capture an image")
-
-    # if captured_image is not None:
-    #     image = Image.open(captured_image)
-    #     st.image(image, caption="Captured Image", use_container_width=True)
-
-    st.subheader("Step 1: Upload an Image")
+    st.subheader("Step 1: Capture an Image")
     uploaded_image = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
 
     if uploaded_image is not None:
-      image = Image.open(uploaded_image)
-      st.image(image, caption="Uploaded Image", use_column_width=True)
+        image = Image.open(uploaded_image)
+        st.image(image, caption="Uploaded Image", use_column_width=True)
 
-
-        # Step 2: Segment the image
+        # Step 2: Segmenting the Image
         st.subheader("Step 2: Segmenting the Image")
-        
-        # Preprocess the image for SAM input (resize the image)
+        mask_generator = load_sam_model()
+
+        # Preprocess the image to match SAM input size (long side 1024)
         image_np = preprocess_for_sam(image)
-        
-        # Segment the image using the SAM model
-        segmentation_mask = segment_image(image)
 
-        # Show the segmentation results
-        display_segmentation_results(image, segmentation_mask)
+        # Generate segmentation mask
+        masks = mask_generator.generate(image_np)
 
-        # Step 3: Classify the segmented object (simplified, placeholder for classification)
-        st.subheader("Step 3: Classifying the Object")
-        # You should load a pre-trained model for waste classification here
-        # For now, just display the result as a placeholder
-        st.write("Placeholder for waste classification.")
+        if masks:
+            Display.show_all(image_np, masks)
+            mask = masks[0]['segmentation']  # Use the first mask
+            mask_image = Image.fromarray((mask * 255).astype(np.uint8))
+            st.image(mask_image, caption="Segmented Mask", use_column_width=True)
 
-        # Step 4: Display disposal recommendation (use your actual classification model here)
-        st.subheader("Step 4: Disposal Recommendation")
-        # Placeholder recommendation (for illustration)
-        st.write("Placeholder for disposal recommendation.")
+            # Step 3: Classify the Object
+            st.subheader("Step 3: Classifying the Object")
+
+            # Convert the mask to 1 channel
+            mask_tensor = ToTensor()(mask_image).unsqueeze(0)
+
+            # Preprocess the original image
+            image_tensor = preprocess_for_sam(image)
+            image_tensor = torch.tensor(image_tensor).permute(2, 0, 1).unsqueeze(0).float()  # BCHW format
+
+            # Load classification model once
+            model = load_classification_model()
+
+            with torch.no_grad():
+                # Pass the image and mask tensors separately
+                outputs = model(image_tensor, mask_tensor)  # pass both image_tensor and mask_tensor separately
+                predicted_class_idx = torch.argmax(outputs, dim=1).item()
+                predicted_class = list(disposal_methods.keys())[predicted_class_idx]
+
+            # Step 4: Display disposal recommendation
+            st.subheader("Step 4: Disposal Recommendation")
+            recommendation = disposal_methods.get(predicted_class, "No recommendation available.")
+            st.write(f"**Classified as**: {predicted_class}")
+            st.write(f"**Disposal Recommendation**: {recommendation}")
+        else:
+            st.error("No segmentation mask could be generated.")
 
 if __name__ == "__main__":
     main()
