@@ -7,3 +7,4 @@ opencv-python-headless
 segment-anything
 requests
 matplotlib
+transformers
