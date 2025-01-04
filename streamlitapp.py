@@ -108,13 +108,19 @@ def load_sam_model():
         'device': 'cpu',
     }
 
-   print("Initializing SAM model...")
-   sam = sam_model_registry['vit_b'](checkpoint='sam_vit_b.pth')
-   sam.to(device)
-   print("SAM model loaded successfully!")
-   mask_generator = SamAutomaticMaskGenerator(sam)
+    print("Initializing SAM model...")
 
-   return mask_generator
+    # Use the config to load the model and checkpoint
+    sam = sam_model_registry[config['MODEL_TYPE']](checkpoint=config['SAM_CHECKPOINT'])
+    sam.to(config['device'])
+
+    print("SAM model loaded successfully!")
+
+    # Initialize the mask generator
+    mask_generator = SamAutomaticMaskGenerator(sam)
+
+    return mask_generator
+
 
 
 # Load classification model
