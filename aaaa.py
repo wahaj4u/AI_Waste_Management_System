@@ -1,6 +1,9 @@
 import random
 import numpy as np
 import torch
+import os
+from transformers import AutoModel
+from huggingface_hub import hf_hub_download
 import torch.nn.functional as F
 from torchvision.models import mobilenet_v2
 from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
@@ -102,16 +105,17 @@ def preprocess_for_sam(image):
 
 # Load SAM model
 def load_sam_model():
-    config = {
-        'MODEL_TYPE': 'vit_b',
-        'SAM_CHECKPOINT': 'sam_vit_b.pth',  # Update to your checkpoint path
-        'device': 'cpu',
-    }
+    # Specify the model repo path on Hugging Face
+    model_repo = "Wahaj4u/sam_vit_b"
+    # Download the checkpoint file from Hugging Face using LFS
+    model_path = hf_hub_download(repo_id=model_repo, filename="sam_vit_b.pth")
+    # Load the SAM model with the checkpoint path
+    sam = sam_model_registry["vit_b"](checkpoint=model_path)
+    # Move model to desired device (CPU or GPU)
+    sam.to(device='cpu')  # Or 'cuda' if you are using a GPU
 
-    sam = sam_model_registry[config['MODEL_TYPE']](checkpoint=config['SAM_CHECKPOINT'])
-    sam.to(device=config['device'])
+    # Create the mask generator
     mask_generator = SamAutomaticMaskGenerator(sam)
-
     return mask_generator
 
 
