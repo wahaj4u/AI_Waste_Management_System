@@ -45,9 +45,9 @@ disposal_methods = {
 # Load the SAM model directly from Hugging Face
 @st.cache_resource
 def load_model():
-    model_name = "Wahaj4u/sam_vit_b"  
-    processor = SamProcessor.from_pretrained(model_name)
-    model = SamModel.from_pretrained(model_name)
+    model_name = "Wahaj4u/sam_vit_b"
+    processor = SamProcessor.from_pretrained(model_name, revision="main")
+    model = SamModel.from_pretrained(model_name, revision="main")
     return processor, model
 
 # Function to process the uploaded image
