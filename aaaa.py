@@ -84,8 +84,6 @@ def download_model_from_github(model_url, model_path):
         print(f"Error downloading the model: {e}")
         raise
 
-
-# Function to load the SAM model
 def load_sam_model():
     model_url = "https://github.com/wahaj4u/AI_Waste_Management_System/releases/download/v1/sam_vit_b.pth"
     model_path = "sam_vit_b.pth"  # Set model_path to the desired path
@@ -96,14 +94,16 @@ def load_sam_model():
     else:
         print(f"Model found at {model_path}. Using the existing model.")
 
-    # Load the model here
-    checkpoint = torch.load(model_path, map_location="cpu")
-    sam_model = sam_model_registry["vit_b"](checkpoint)
-    sam_model.to(device='cpu')
+    # Load the model checkpoint
+    checkpoint = torch.load(model_path, map_location="cpu")  # Load the checkpoint from the path
 
+    # Load the SAM model using the checkpoint
+    sam_model = sam_model_registry["vit_b"](checkpoint)  # Make sure this matches the expected SAM model initialization
+    sam_model.to(device='cpu')  # Or 'cuda' if you're using a GPU
+
+    # Create the mask generator
     mask_generator = SamAutomaticMaskGenerator(sam_model)
     return mask_generator
-
 
 # Load classification model
 def load_classification_model():
