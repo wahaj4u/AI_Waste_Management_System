@@ -42,15 +42,16 @@ disposal_methods = {
 }
 
 # Initialize SAM model
-@st.cache_resource
 def load_sam_model():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    if os.path.exists('sam_vit_b.pth'):
-        sam = sam_model_registry['vit_b'](checkpoint='sam_vit_b.pth')
-    else:
-        st.error("Model file not found!")
+    model_path = 'sam_vit_b.pth'
+    if os.path.exists(model_path):
+        print(f"Loading model from: {model_path}")
+        sam = sam_model_registry['vit_b'](checkpoint=model_path)
         sam.to(device)
         return SamAutomaticMaskGenerator(sam)
+    else:
+        st.error("Model file not found!")
 
 # Load trained classification model
 @st.cache_resource
