@@ -222,6 +222,7 @@ def preprocess_for_sam(image):
 
 
 # Load SAM model
+@st.cache_resource
 def load_sam_model():
     config = {
         'MODEL_TYPE': 'vit_b',
@@ -240,6 +241,7 @@ def load_sam_model():
 
 
 # Load classification model
+@st.cache_resource
 def load_classification_model():
     # Here we load the pre-trained model for waste classification (train_account_best.pth)
     checkpoint = torch.load('train_account_best.pth', weights_only=True)  # Ensure weights_only=True
