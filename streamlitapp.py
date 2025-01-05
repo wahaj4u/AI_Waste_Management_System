@@ -7,6 +7,7 @@ from segment_anything import sam_model_registry, SamAutomaticMaskGenerator
 from PIL import Image
 import cv2
 import streamlit as st
+import torchvision.transforms
 import matplotlib.pyplot as plt
 from torchvision.transforms import ToTensor
 
