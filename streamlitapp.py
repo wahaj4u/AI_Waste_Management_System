@@ -3,11 +3,10 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torchvision.models import mobilenet_v2
-from segment_anything import sam_model_registry, SamAutomaticMaskGenerator
+from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
 from PIL import Image
 import cv2
 import streamlit as st
-import torchvision.transforms
 import matplotlib.pyplot as plt
 from torchvision.transforms import ToTensor
 
@@ -101,43 +100,44 @@ def preprocess_for_sam(image):
     return image_np
 
 
+# Load SAM model
 def load_sam_model():
     config = {
-        'MODEL_TYPE': 'vit_b',  # Model type (vit_b is a variant of Vision Transformer)
-        'SAM_CHECKPOINT': 'sam_vit_b.pth',  # Path to SAM checkpoint file
-        'device': 'cpu',  # Use 'cuda' if GPU is available
+        'MODEL_TYPE': 'vit_b',
+        'SAM_CHECKPOINT': 'sam_vit_b.pth',  # Ensure the path is correct
+        'device': 'cpu',
     }
 
-    print("Initializing SAM model...")
-
-    # Ensure the model type is registered correctly
     try:
-        # Register and load SAM model with the correct checkpoint
-        sam = sam_model_registry[config['MODEL_TYPE']](checkpoint=config['SAM_CHECKPOINT'])
-        sam.to(config['device'])  # Move model to the correct device (CPU or GPU)
-        print("SAM model loaded successfully!")
+        # Initialize the model first
+        sam = sam_model_registry[config['MODEL_TYPE']]()  # Correctly initialize the model without weights first
 
-        # Initialize the mask generator
+        # Load the checkpoint as a state dictionary
+        checkpoint = torch.load(config['SAM_CHECKPOINT'], map_location=config['device'], weights_only=True)
+
+        
+        # Load the state dictionary into the model
+        sam.load_state_dict(checkpoint)
+        
+        # Send the model to the correct device
+        sam.to(config['device'])
+        
+        # Create the mask generator using the model
         mask_generator = SamAutomaticMaskGenerator(sam)
-
+        print("SAM model loaded successfully!")
         return mask_generator
 
-    except KeyError as e:
-        print(f"Error: Model type {config['MODEL_TYPE']} not found in sam_model_registry.")
-        raise e  # Re-raise the exception to stop further execution
     except Exception as e:
-        print(f"An error occurred while loading the SAM model: {e}")
-        raise e  # Re-raise the exception to stop further execution
+        print(f"Error loading the SAM model: {e}")
+        raise e
+
 
 
 # Load classification model
 def load_classification_model():
-    # Here we load the pre-trained model for waste classification (train_loss_best.pt)
     checkpoint = torch.load('train_account_best.pth', map_location=torch.device('cpu'))
-    
-    model = WasteClassificationModelWithMask(num_classes=len(disposal_methods))  # Adjust with correct number of classes
+    model = WasteClassificationModelWithMask(num_classes=len(disposal_methods))
     model.load_state_dict(checkpoint['model_state_dict'])
-    
     return model
 
 
@@ -159,7 +159,8 @@ class WasteClassificationModelWithMask(torch.nn.Module):
 
     def forward(self, image_tensor, mask_tensor):
         # Ensure the mask_tensor has the same number of channels as image_tensor
-        mask_tensor = torch.nn.Conv2d(mask_tensor.size(1), 1, kernel_size=1)(mask_tensor)  # Reduce mask to 1 channel
+        mask_tensor = torch.unsqueeze(mask_tensor, dim=1) if mask_tensor.dim() == 3 else mask_tensor
+
 
         # Resize mask_tensor to match the height and width of image_tensor
         if mask_tensor.shape[2:] != image_tensor.shape[2:]:
